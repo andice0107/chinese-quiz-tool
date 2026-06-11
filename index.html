@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智能國語教學與命題系統 (功能完整修復版)</title>
+    <title>AI 智能國語教學與命題系統 (付費 API 終極修復版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -29,7 +29,7 @@
             </div>
             <div class="flex items-center gap-4 w-full md:w-auto">
                 <div class="relative flex-1 md:flex-initial">
-                    <input type="password" id="apiKeyInput" placeholder="請輸入 Gemini API Key..." class="w-full md:w-64 px-4 py-2 bg-indigo-700 text-white rounded-lg placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all text-sm">
+                    <input type="password" id="apiKeyInput" oninput="saveApiKeyToLocal(this.value)" placeholder="請輸入 Gemini API Key..." class="w-full md:w-64 px-4 py-2 bg-indigo-700 text-white rounded-lg placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all text-sm">
                 </div>
             </div>
         </div>
@@ -253,6 +253,21 @@
         let G_examQuestions = [], G_parsedExamQuestions = [], G_seenQuestionTexts = new Set();
         let G_quizCurrentIndex = 0, G_quizQuestions = [], G_quizTimerValue = 0, G_quizTimerInterval = null, G_quizWrongList = [], G_quizCurrentMapping = {};
 
+        // 頁面加載完成時，自動讀取本地儲存的 API Key 鎖定
+        window.addEventListener('DOMContentLoaded', () => {
+            const savedKey = localStorage.getItem('gemini_api_key');
+            if (savedKey) {
+                G_apiKey = savedKey;
+                document.getElementById('apiKeyInput').value = savedKey;
+            }
+        });
+
+        // 儲存 API Key 至本機儲存空間
+        function saveApiKeyToLocal(value) {
+            G_apiKey = value.trim();
+            localStorage.setItem('gemini_api_key', G_apiKey);
+        }
+
         function showToast(text) {
             const toast = document.getElementById('toastNotification');
             document.getElementById('toastText').textContent = text;
@@ -375,12 +390,20 @@
             } catch (err) { showToast("題庫內文提取失敗"); } finally { toggleLoading(false); }
         });
 
+        // 台灣標準國音輔助對應字典
+        const BOPOMOFO_MAP = {
+            "罐": "ㄍㄨㄢˋ", "冠": "ㄍㄨㄢ", "灌": "ㄍㄨㄢˋ", "貫": "ㄍㄨㄢˋ",
+            "緻": "ㄓˋ", "助": "ㄓㄨˋ", "赤": "ㄔˋ", "自": "ㄗˋ",
+            "好": "ㄏㄠˋ", "惡": "ㄨˋ", "逸": "ㄧˋ", "勞": "ㄌㄠˊ",
+            "傍": "ㄅㄤ", "晚": "ㄨㄢˇ", "水": "ㄕㄨㄟˇ"
+        };
+
         async function parseExamChunkWithAI(textSegment, apiKey) {
             const systemPrompt = `你是一個專業的台灣國小國語科結構化助手。請將傳入的考題文本片段轉為標準 JSON 陣列。
-【100% 教學現場原樣還原規範】：
-1. 題幹與選項字體字形必須與原始題庫100%完全原樣一致。原本是國字（如：助、赤、自、緻）就必須絕對維持國字，不准擅自轉為注音！
+【教學現場最嚴格防洩密與原樣規範】：
+1. 題幹與選項字體字形必須與原始題庫100%完全原樣一致。原本是國字就必須絕對維持國字，不准擅自轉為注音！
 2. 只有當大題分類是選錯別字、寫國字（字形題）時，才需在題幹中將答案字挖空為「□」。
-3. 如果是字音題（注音題，如問：『緻』的注音為何？或問某組字音是否相同？），題幹與選項中的國字必須完美完整保留，絕對不准用『□』遮蔽！其 category 必須精確標註為 "字音字形"。
+3. 如果是字音題（注音題，如問：『緻』的注音為何？或問『罐』的注音為何？），題幹與選項中的國字必須完美完整保留，絕對不准用『□』遮蔽！其 category 必須精確標註為 "字音字形"。
 JSON結構：
 [
   {
@@ -397,7 +420,21 @@ JSON結構：
                 generationConfig: { responseMimeType: "application/json" }
             };
             const data = await callGeminiAPI(payload, apiKey);
-            try { return JSON.parse(data.candidates[0].content.parts[0].text); } catch(e) { return []; }
+            try { 
+                let list = JSON.parse(data.candidates[0].content.parts[0].text); 
+                // 前端強制物理修正：防露題防混淆二次校正演算法
+                return list.map(q => {
+                    if (q.category === "字音字形") {
+                        let answerText = q.options[q.answer - 1];
+                        if (answerText && q.question.includes(`「${answerText}」`)) {
+                            // 發現把國字正解塞進了引號中（洩題），自動執行台灣教育部標準注音替換
+                            let bopomofoText = BOPOMOFO_MAP[answerText] || " ";
+                            q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
+                        }
+                    }
+                    return q;
+                });
+            } catch(e) { return []; }
         }
 
         async function handleGenerateAction() {
@@ -405,7 +442,6 @@ JSON結構：
             const targetCount = parseInt(document.getElementById('questionCount').value) || 10;
             toggleLoading(true, "正在精準篩選您勾選的題型...");
             
-            // 建立嚴格的題型對齊字典
             const enabledCategories = [];
             if (document.getElementById('typePhonetics').checked) enabledCategories.push("字音字形");
             if (document.getElementById('typeIdiom').checked) enabledCategories.push("成語測驗", "生字延伸成語");
@@ -414,13 +450,12 @@ JSON結構：
             if (document.getElementById('typeComprehension').checked) enabledCategories.push("文意理解測驗", "文意理解");
 
             try {
-                // 【精準過濾核心】：硬性強制只允許勾選的題型分流進入
                 let pool = G_parsedExamQuestions.filter(q => {
                     return enabledCategories.some(cat => q.category && q.category.includes(cat));
                 });
 
                 if (pool.length === 0) {
-                    showToast("目前題庫中沒有完全符合您勾選題型的題目，請重新檢查設定。");
+                    showToast("目前題庫中沒有完全符合您勾選題型的題目。");
                     toggleLoading(false);
                     return;
                 }
@@ -462,7 +497,7 @@ JSON結構：
             if (!allowRepeatHistory) {
                 const filtered = pool.filter(q => !G_seenQuestionTexts.has(q.question));
                 if (filtered.length === 0) {
-                    showToast("本大題內歷史題目均已抽過，自動清空本機排重歷史重新載入！");
+                    showToast("本大題內歷史題目均已抽過，自動重設排重記錄！");
                     G_seenQuestionTexts.clear();
                 } else { pool = filtered; }
             }
@@ -500,23 +535,41 @@ JSON結構：
                 grid.appendChild(btn);
             });
             document.getElementById('quizFeedbackArea').classList.add('hidden');
-            startQuizTimer();
+            
+            // 出題時，重新抓取單題限制時間上限
+            let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
+            startQuizTimer(limit);
         }
 
-        function startQuizTimer() {
+        // 精準鎖定中斷秒數接續倒數計時引擎
+        function startQuizTimer(secondsValue) {
             clearInterval(G_quizTimerInterval);
             let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
             if (limit === 0) { document.getElementById('quizTimerContainer').classList.add('hidden'); return; }
             document.getElementById('quizTimerContainer').classList.remove('hidden');
-            G_quizTimerValue = limit; document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
+            
+            G_quizTimerValue = secondsValue;
+            document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
+            
             G_quizTimerInterval = setInterval(() => {
-                G_quizTimerValue--; document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
+                G_quizTimerValue--;
+                document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
                 if (G_quizTimerValue <= 0) { clearInterval(G_quizTimerInterval); handleTimeOut(); }
             }, 1000);
         }
 
-        function pauseQuizPlay() { clearInterval(G_quizTimerInterval); document.getElementById('quizPauseOverlay').classList.remove('hidden'); }
-        function resumeQuizPlay() { document.getElementById('quizPauseOverlay').classList.add('hidden'); startQuizTimer(); }
+        // 點擊暫停：凍結目前精確的秒數
+        function pauseQuizPlay() { 
+            clearInterval(G_quizTimerInterval); 
+            document.getElementById('quizPauseOverlay').classList.remove('hidden'); 
+        }
+        
+        // 點擊繼續：從被凍結的 G_quizTimerValue 接續倒數，絕不歸零！
+        function resumeQuizPlay() { 
+            document.getElementById('quizPauseOverlay').classList.add('hidden'); 
+            startQuizTimer(G_quizTimerValue); 
+        }
+        
         function exitQuizToHome() { closeQuizModal(); document.getElementById('quizConfigScreen').classList.remove('hidden'); }
 
         function handleSelectOption(chosenIdx, correctIdx, questionObj) {
