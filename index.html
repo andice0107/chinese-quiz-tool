@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智能國語教學與命題系統 (付費 API 終極修復版)</title>
+    <title>AI 智能國語教學與命題系統 (功能完整修復版)</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
@@ -77,7 +77,7 @@
                     <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20" /></svg>
                     </span>
-                    2. 命題光碟題庫匯入 (解鎖 PDF / Word 雙相容)
+                    2. 命題光碟題庫匯入 (支援 PDF/Word)
                 </h2>
                 <div class="space-y-4">
                     <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center transition-all cursor-pointer relative group">
@@ -85,7 +85,7 @@
                         <div class="space-y-1">
                             <svg class="w-8 h-8 text-slate-400 group-hover:text-indigo-500 mx-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                             <p class="text-sm font-medium text-slate-700">點擊或拖入命題光碟檔案</p>
-                            <p class="text-xs text-slate-400">支援台灣各大書局產出之 .docx 與 .pdf</p>
+                            <p class="text-xs text-slate-400">支援台灣廠商出之 .docx 與 .pdf 檔案</p>
                         </div>
                     </div>
                     <div id="examStatus" class="hidden text-xs py-2 px-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 flex items-center justify-between">
@@ -150,7 +150,7 @@
                     <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                 </div>
                 <h3 class="text-xl font-black text-slate-800">準備好進行智能教學了嗎？</h3>
-                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側輸入 API Key 並直接匯入命題光碟檔案。系統已動態相容各大書局 Word XML 標籤，並支援大文本自動切片解析，保證一題不漏！</p>
+                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側輸入 API Key 並直接匯入命題光碟檔案。系統已支援大文本自動切片解析，保證一題不漏！</p>
             </div>
 
             <div id="examResultPanel" class="hidden bg-white rounded-2xl shadow-md p-6 border border-slate-100 flex-1 flex flex-col space-y-6">
@@ -195,6 +195,12 @@
                     <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
                         <input type="checkbox" id="quizRepeatWrong" class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
                         <span class="text-sm font-medium text-slate-800">開啟錯題重複複習模式</span>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                        <input type="checkbox" id="quizAllowRepeatHistory" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
+                        <div>
+                            <span class="block text-sm font-medium text-slate-800">再次出題時允許重複出已出過的題目</span>
+                        </div>
                     </label>
                 </div>
             </div>
@@ -286,7 +292,6 @@
             } catch (err) { showToast("教材讀取失敗"); } finally { toggleLoading(false); }
         });
 
-        // 題庫上傳引擎修正版：完美動態向下相容各大廠商 Word XML 命名空間與標籤變體
         document.getElementById('examUpload').addEventListener('change', async function(e) {
             const file = e.target.files[0]; if (!file) return;
             if (!getApiKey()) { showToast("請先輸入 API Key"); e.target.value = ''; return; }
@@ -310,7 +315,6 @@
                     const parser = new DOMParser();
                     const xmlDoc = parser.parseFromString(docXmlText, "text/xml");
                     
-                    // 智慧萬用標籤匹配：不再死守 w: 前綴，徹底解決讀不到題的臭蟲！
                     const paragraphs = xmlDoc.getElementsByTagName("*");
                     for (let node of paragraphs) {
                         if (node.localName === "p") {
@@ -318,7 +322,6 @@
                             const childNodes = node.getElementsByTagName("*");
                             for (let child of childNodes) {
                                 if (child.localName === "ruby") {
-                                    // 抓取國字部分
                                     const baseNodes = child.getElementsByTagName("*");
                                     let baseStr = "", rtStr = "";
                                     for (let n of baseNodes) {
@@ -331,13 +334,9 @@
                                             for (let t of tNodes) { if (t.localName === "t") rtStr += t.textContent; }
                                         }
                                     }
-                                    if (baseStr) {
-                                        pText += rtStr ? `${baseStr}(${rtStr})` : baseStr;
-                                    }
+                                    if (baseStr) { pText += rtStr ? `${baseStr}(${rtStr})` : baseStr; }
                                 } else if (child.localName === "t") {
-                                    // 確保這不是被包含在 ruby 內部的獨立重複標籤
-                                    let parent = child.parentNode;
-                                    let isInRuby = false;
+                                    let parent = child.parentNode; let isInRuby = false;
                                     while (parent) {
                                         if (parent.localName === "ruby" || parent.localName === "rt" || parent.localName === "rubyBase") { isInRuby = true; break; }
                                         parent = parent.parentNode;
@@ -352,38 +351,28 @@
 
                 if (!rawText.trim()) { throw new Error("Text empty"); }
 
-                // 智慧優化分批切片：適度擴大每批份量，全面配合付費版 API 推理
                 const lines = rawText.split('\n').filter(l => l.trim().length > 0);
-                let textChunks = [];
-                let currentChunk = "";
-                
+                let textChunks = []; let currentChunk = "";
                 for (let line of lines) {
                     currentChunk += line + "\n";
-                    if (currentChunk.length > 5000) { 
-                        textChunks.push(currentChunk); currentChunk = "";
-                    }
+                    if (currentChunk.length > 5000) { textChunks.push(currentChunk); currentChunk = ""; }
                 }
                 if (currentChunk) textChunks.push(currentChunk);
 
                 G_parsedExamQuestions = [];
-                // 依序分組發送，並在每次請求之間加入 1.5 秒安全延遲，完美解決 RPM 熔斷
                 for (let i = 0; i < textChunks.length; i++) {
-                    toggleLoading(true, `正在解析精準題庫 (進度: ${Math.round(((i+1)/textChunks.length)*100)}%)... 請老師稍候...`);
+                    toggleLoading(true, `正在解析精準題庫 (進度: ${Math.round(((i+1)/textChunks.length)*100)}%)...`);
                     const chunkQs = await parseExamChunkWithAI(textChunks[i], getApiKey());
                     if (chunkQs && chunkQs.length > 0) {
                         G_parsedExamQuestions = G_parsedExamQuestions.concat(chunkQs);
                         document.getElementById('examParsedCount').textContent = `${G_parsedExamQuestions.length} 題`;
                     }
-                    if (i < textChunks.length - 1) {
-                        await new Promise(resolve => setTimeout(resolve, 1500)); 
-                    }
+                    if (i < textChunks.length - 1) { await new Promise(resolve => setTimeout(resolve, 1500)); }
                 }
-
                 document.getElementById('examName').textContent = file.name;
                 document.getElementById('examStatus').classList.remove('hidden');
-                showToast(`超大題庫完美原樣解析完畢，共成功導入 ${G_parsedExamQuestions.length} 題！`);
-
-            } catch (err) { showToast("題庫內文提取失敗，請確認檔案格式或內容"); } finally { toggleLoading(false); }
+                showToast(`超大題庫完美解析完畢，共成功導入 ${G_parsedExamQuestions.length} 題！`);
+            } catch (err) { showToast("題庫內文提取失敗"); } finally { toggleLoading(false); }
         });
 
         async function parseExamChunkWithAI(textSegment, apiKey) {
@@ -447,7 +436,20 @@ JSON結構：
         function launchQuizPlay() {
             document.getElementById('quizConfigScreen').classList.add('hidden');
             document.getElementById('quizPlayScreen').classList.remove('hidden');
-            G_quizQuestions = JSON.parse(JSON.stringify(G_examQuestions));
+            
+            // 【核心邏輯回補】：根據 quizAllowRepeatHistory 是否打勾，決定是否過濾做過的考題
+            const allowRepeatHistory = document.getElementById('quizAllowRepeatHistory').checked;
+            let pool = JSON.parse(JSON.stringify(G_examQuestions));
+            
+            if (!allowRepeatHistory) {
+                const filtered = pool.filter(q => !G_seenQuestionTexts.has(q.question));
+                if (filtered.length === 0) {
+                    showToast("本大題內歷史題目均已抽過，自動清空本機排重歷史重新載入！");
+                    G_seenQuestionTexts.clear();
+                } else { pool = filtered; }
+            }
+
+            G_quizQuestions = pool;
             if (document.getElementById('quizShuffleQs').checked) G_quizQuestions.sort(() => Math.random() - 0.5);
             G_quizCurrentIndex = 0; G_quizWrongList = [];
             loadQuizQuestion(G_quizCurrentIndex);
@@ -488,8 +490,7 @@ JSON結構：
             let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
             if (limit === 0) { document.getElementById('quizTimerContainer').classList.add('hidden'); return; }
             document.getElementById('quizTimerContainer').classList.remove('hidden');
-            G_quizTimerValue = limit;
-            document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
+            G_quizTimerValue = limit; document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
             G_quizTimerInterval = setInterval(() => {
                 G_quizTimerValue--; document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
                 if (G_quizTimerValue <= 0) { clearInterval(G_quizTimerInterval); handleTimeOut(); }
@@ -501,6 +502,7 @@ JSON結構：
 
         function handleSelectOption(chosenIdx, correctIdx, questionObj) {
             clearInterval(G_quizTimerInterval);
+            G_seenQuestionTexts.add(questionObj.question); // 寫入作答歷史記錄
             const isCorrect = (chosenIdx === correctIdx);
             if (!isCorrect) G_quizWrongList.push(questionObj);
             
@@ -515,7 +517,7 @@ JSON結構：
         }
 
         function handleTimeOut() {
-            const q = G_quizQuestions[G_quizCurrentIndex]; G_quizWrongList.push(q);
+            const q = G_quizQuestions[G_quizCurrentIndex]; G_quizWrongList.push(q); G_seenQuestionTexts.add(q.question);
             showQuizFeedback(false, G_quizCurrentMapping[q.answer], q.explain, q.options, q.answer);
         }
 
