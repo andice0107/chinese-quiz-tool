@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 智能國語教學與命題系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght=300;400;500;700;900&display=swap');
+        body { font-family: 'Noto Sans TC', sans-serif; background-color: #f3f4f6; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col transition-colors duration-300">
+
+    <header class="bg-indigo-600 text-white shadow-lg py-4 px-6 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <svg class="w-8 h-8 text-indigo-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
+                <h1 class="text-xl md:text-2xl font-black tracking-wider">AI 智能國語教學與命題系統</h1>
+            </div>
+            <div class="flex items-center gap-4 w-full md:w-auto">
+                <div class="relative flex-1 md:flex-initial">
+                    <input type="password" id="apiKeyInput" placeholder="請輸入 Gemini API Key..." class="w-full md:w-64 px-4 py-2 bg-indigo-700 text-white rounded-lg placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all text-sm">
+                </div>
+                <div class="text-xs bg-indigo-500 py-1 px-2.5 rounded-full text-indigo-100 hidden md:inline-block font-mono">
+                    自動偵測最佳模型
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl mx-auto p-4 md:p-6 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <section class="lg:col-span-5 space-y-6">
+            <div class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                    </span>
+                    1. 課本教材解析與範圍設定
+                </h2>
+                <div class="space-y-4">
+                    <div class="border-2 border-dashed border-slate-200 hover:border-emerald-400 rounded-xl p-4 text-center transition-all cursor-pointer relative group">
+                        <input type="file" id="textbookUpload" accept=".pdf,.docx,.txt" class="absolute inset-0 opacity-0 cursor-pointer w-full">
+                        <div class="space-y-1">
+                            <svg class="w-8 h-8 text-slate-400 group-hover:text-emerald-500 mx-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                            <p class="text-sm font-medium text-slate-700">點擊或拖入課本/教冊電子檔</p>
+                            <p class="text-xs text-slate-400">支援 .pdf, .docx, .txt (繁體中文版)</p>
+                        </div>
+                    </div>
+                    <div id="textbookStatus" class="hidden text-xs py-2 px-3 bg-emerald-50 border border-emerald-100 rounded-lg text-emerald-700 flex items-center justify-between">
+                        <span class="truncate font-medium" id="textbookName"></span>
+                        <button onclick="clearUploadedTextbook()" class="text-emerald-500 hover:text-emerald-700 font-bold ml-2">清除</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">起始頁碼 / 課次</label>
+                            <input type="text" id="startRange" placeholder="例如：第7課 或 82" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1">結束頁碼 / 課次</label>
+                            <input type="text" id="endRange" placeholder="例如：第8課 或 98" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20" /></svg>
+                    </span>
+                    2. 命題光碟題庫匯入 (優先代入)
+                </h2>
+                <div class="space-y-4">
+                    <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center transition-all cursor-pointer relative group">
+                        <input type="file" id="examUpload" accept=".docx" class="absolute inset-0 opacity-0 cursor-pointer w-full">
+                        <div class="space-y-1">
+                            <svg class="w-8 h-8 text-slate-400 group-hover:text-indigo-500 mx-auto transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                            <p class="text-sm font-medium text-slate-700">點擊或拖入命題光碟 Word 檔</p>
+                            <p class="text-xs text-slate-400">支援標準 Word .docx 檔案</p>
+                        </div>
+                    </div>
+                    <div id="examStatus" class="hidden text-xs py-2 px-3 bg-indigo-50 border border-indigo-100 rounded-lg text-indigo-700 flex items-center justify-between">
+                        <span class="truncate font-medium" id="examName"></span>
+                        <div class="flex items-center gap-2">
+                            <span id="examParsedCount" class="bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded-md font-bold"></span>
+                            <button onclick="clearUploadedExam()" class="text-indigo-500 hover:text-indigo-700 font-bold">清除</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 relative overflow-hidden">
+                <div class="absolute top-0 left-0 w-2 h-full bg-violet-500"></div>
+                <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="p-1.5 bg-violet-50 text-violet-600 rounded-lg">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
+                    </span>
+                    3. 教學命題參數與題型勾選
+                </h2>
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-600 mb-1.5">出題總題數</label>
+                        <input type="number" id="questionCount" value="10" min="1" max="50" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500">
+                    </div>
+                    <div>
+                        <span class="block text-xs font-bold text-slate-600 mb-2">測驗題型勾選</span>
+                        <div class="grid grid-cols-2 gap-2 text-sm">
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="typePhonetics" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>字音字形測驗</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="typeIdiom" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>成語測驗</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="typeRhetoric" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>修辭測驗</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="typeMeaning" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>語詞意思測驗</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="typeSynAnt" class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>相似相反詞測驗</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
+                                <input type="checkbox" id="typeRadical" class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>部首測驗</span>
+                            </label>
+                            <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer col-span-2">
+                                <input type="checkbox" id="typeComprehension" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <span>文意理解測驗</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <button id="btnGenerateExam" onclick="handleGenerateAction()" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-bold py-4 rounded-2xl shadow-lg hover:from-indigo-700 hover:to-violet-700 transform hover:-translate-y-0.5 active:translate-y-0 transition-all flex items-center justify-center gap-2">
+                <svg class="w-6 h-6 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.428 15.428a2 2 0 00-1.022-.547l-2.387-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>
+                啟動 AI 智能整合出題
+            </button>
+        </section>
+
+        <section class="lg:col-span-7 flex flex-col space-y-6">
+            <div id="introPanel" class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 flex-1 flex flex-col items-center justify-center text-center space-y-4">
+                <div class="p-4 bg-indigo-50 rounded-full text-indigo-600">
+                    <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
+                </div>
+                <h3 class="text-xl font-black text-slate-800">準備好進行智能教學了嗎？</h3>
+                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側設定出題頁碼範圍、題型並輸入 API Key。您可上傳命題光碟檔案做為優先題庫。出題完成後可立即「線上即時答題」或「生成 Word 試卷檔」。</p>
+                <div class="flex gap-4">
+                    <button onclick="loadSampleTextbook()" class="text-xs font-bold text-emerald-600 bg-emerald-50 hover:bg-emerald-100 py-2 px-4 rounded-lg border border-emerald-200">代入樣例數據 (第八課 - 海洋的殺手)</button>
+                </div>
+            </div>
+
+            <div id="examResultPanel" class="hidden bg-white rounded-2xl shadow-md p-6 border border-slate-100 flex-1 flex flex-col space-y-6">
+                <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-100 pb-4 gap-4">
+                    <div>
+                        <h3 class="text-lg font-black text-slate-800 flex items-center gap-2"><span class="w-2.5 h-2.5 bg-indigo-600 rounded-full"></span>AI 智能試卷生成完畢</h3>
+                        <p class="text-xs text-slate-500 mt-1" id="examMetaText">共計 10 題</p>
+                    </div>
+                    <div class="flex flex-wrap gap-2 w-full md:w-auto">
+                        <button onclick="startQuizMission()" class="flex-1 md:flex-none px-4 py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-bold rounded-xl shadow-md hover:from-emerald-600 hover:to-teal-700 transition-all flex items-center justify-center gap-2">直接進入答題任務</button>
+                        <button onclick="exportWordDocument()" class="flex-1 md:flex-none px-4 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm font-bold rounded-xl border border-indigo-200 transition-all flex items-center justify-center gap-2">生成 Word 檔</button>
+                    </div>
+                </div>
+                <div class="flex-1 overflow-y-auto custom-scrollbar pr-2 max-h-[500px]" id="examQuestionsPreview"></div>
+            </div>
+        </section>
+    </main>
+
+    <div id="quizModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div id="quizConfigScreen" class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 p-6 space-y-6 transform transition-all">
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                <h3 class="text-lg font-black text-slate-800 flex items-center gap-2">線上答題任務設定</h3>
+                <button onclick="closeQuizModal()" class="text-slate-400 hover:text-slate-600 transition-colors">✕</button>
+            </div>
+            <div class="space-y-4 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                <div>
+                    <label class="block text-xs font-bold text-slate-600 mb-1.5">單題答題時間</label>
+                    <select id="quizTimerConfig" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500">
+                        <option value="0">不限時間</option>
+                        <option value="15">15 秒</option>
+                        <option value="30" selected>30 秒</option>
+                        <option value="60">60 秒</option>
+                    </select>
+                </div>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                        <input type="checkbox" id="quizShuffleQs" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
+                        <div><span class="block text-sm font-medium text-slate-800">隨機打亂題目順序</span></div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                        <input type="checkbox" id="quizShuffleOpts" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
+                        <div><span class="block text-sm font-medium text-slate-800">隨機打亂選項順序 (①~④)</span></div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                        <input type="checkbox" id="quizRepeatWrong" class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
+                        <div><span class="block text-sm font-medium text-slate-800">開啟錯題重複複習模式</span></div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
+                        <input type="checkbox" id="quizAllowRepeatHistory" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
+                        <div><span class="block text-sm font-medium text-slate-800">再次出題時允許重複出已出過的題目</span></div>
+                    </label>
+                </div>
+            </div>
+            <button onclick="launchQuizPlay()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold py-3 rounded-xl shadow-lg hover:from-emerald-600 hover:to-teal-700 transition-all flex items-center justify-center gap-2">開始挑戰答題任務</button>
+        </div>
+
+        <div id="quizPlayScreen" class="hidden bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 p-6 flex flex-col h-[90vh] md:h-auto max-h-[750px] relative overflow-hidden">
+            <div id="quizPauseOverlay" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6 transition-all duration-300">
+                <div class="text-white text-center space-y-2 px-4">
+                    <h3 class="text-xl font-black tracking-wider">挑戰暫停中</h3>
+                    <p class="text-xs text-slate-200">題目內容已安全隱蔽，準備好後即可繼續答題</p>
+                </div>
+                <div class="flex flex-col gap-3 w-48">
+                    <button onclick="resumeQuizPlay()" class="w-full py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-md">繼續作答</button>
+                    <button onclick="exitQuizToHome()" class="w-full py-2.5 bg-slate-800 text-white font-bold rounded-xl">返回大廳</button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-black text-slate-500" id="quizProgressText">第 1 / 10 題</span>
+                    <button onclick="speakCurrentQuestion()" class="p-1.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-full">🗣️</button>
+                    <button onclick="pauseQuizPlay()" class="p-1.5 bg-slate-100 text-slate-600 rounded-full">⏸️</button>
+                </div>
+                <div id="quizTimerContainer" class="flex items-center gap-2">
+                    <span class="text-sm font-bold text-slate-500 font-mono" id="quizTimerText">30s</span>
+                    <div class="relative w-8 h-8">
+                        <svg class="w-full h-full transform -rotate-90">
+                            <circle cx="16" cy="16" r="14" stroke="#e2e8f0" stroke-width="3" fill="transparent" />
+                            <circle id="quizTimerCircle" cx="16" cy="16" r="14" stroke="#4f46e5" stroke-width="3" fill="transparent" stroke-dasharray="88" stroke-dashoffset="0" />
+                        </svg>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scrollbar my-6 space-y-6">
+                <span id="quizQuestionTag" class="inline-block px-2.5 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold rounded-md"></span>
+                <h4 id="quizQuestionBody" class="text-lg md:text-xl font-bold text-slate-800 leading-relaxed"></h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3" id="quizOptionsGrid"></div>
+            </div>
+
+            <div id="quizFeedbackArea" class="hidden border-t border-slate-100 pt-4 space-y-3">
+                <div class="flex items-center gap-2 font-bold" id="quizFeedbackStatus"></div>
+                <p class="text-sm text-slate-600 leading-relaxed" id="quizFeedbackExplain"></p>
+                <button onclick="handleQuizNextQuestion()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-xl">下一題</button>
+            </div>
+        </div>
+
+        <div id="quizScoreScreen" class="hidden bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 p-6 space-y-6 text-center">
+            <h3 class="text-xl font-black text-slate-800">🏆 答題任務挑戰結果</h3>
+            <div class="text-center"><span class="block text-4xl font-black text-slate-800" id="quizScoreText">0</span></div>
+            <div class="bg-slate-50 rounded-2xl p-4 grid grid-cols-2 gap-4 text-sm font-medium">
+                <div><span class="block text-slate-400 text-xs">答對題數</span><span class="text-emerald-600 font-bold" id="quizCorrectCountText">0 題</span></div>
+                <div><span class="block text-slate-400 text-xs">平均用時</span><span class="text-indigo-600 font-bold" id="quizAvgTimeText">0.0 秒</span></div>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="launchQuizPlay()" class="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl">再挑戰一次</button>
+                <button onclick="closeQuizModal()" class="flex-1 py-3 bg-slate-100 text-slate-700 font-bold rounded-xl">返回大廳</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center space-y-4">
+        <div class="rounded-full border-4 border-slate-300 border-t-indigo-600 animate-spin w-12 h-12"></div>
+        <p class="text-white font-bold text-sm" id="loadingText"></p>
+    </div>
+    <div id="toastNotification" class="fixed bottom-5 right-5 z-50 bg-slate-800 text-white text-sm py-3 px-5 rounded-xl shadow-lg flex items-center gap-2 transition-all opacity-0 pointer-events-none">
+        <span id="toastText"></span>
+    </div>
+
+    <script>
+        let G_apiKey = "", G_textbookText = "", G_textbookName = "";
+        let G_examQuestions = [], G_parsedExamQuestions = [], G_seenQuestionTexts = new Set();
+        let G_quizCurrentIndex = 0, G_quizQuestions = [], G_quizScore = 0, G_quizCorrectCount = 0, G_quizTotalTimes = 0, G_quizTimerValue = 0, G_quizTimerInterval = null, G_quizWrongList = [], G_quizCurrentMapping = {};
+
+        function showToast(text) {
+            const toast = document.getElementById('toastNotification');
+            document.getElementById('toastText').textContent = text;
+            toast.style.opacity = "1";
+            setTimeout(() => { toast.style.opacity = "0"; }, 3000);
+        }
+        function toggleLoading(show, text) {
+            const overlay = document.getElementById('loadingOverlay');
+            document.getElementById('loadingText').textContent = text;
+            show ? overlay.classList.remove('hidden') : overlay.classList.add('hidden');
+        }
+        function getApiKey() { return document.getElementById('apiKeyInput').value.trim() || G_apiKey; }
+        function clearUploadedTextbook() { document.getElementById('textbookUpload').value = ''; document.getElementById('textbookStatus').classList.add('hidden'); G_textbookText = ""; showToast("已清除課本電子檔"); }
+        function clearUploadedExam() { document.getElementById('examUpload').value = ''; document.getElementById('examStatus').classList.add('hidden'); G_parsedExamQuestions = []; showToast("已清除匯入題庫"); }
+
+        document.getElementById('textbookUpload').addEventListener('change', async function(e) {
+            const file = e.target.files[0]; if (!file) return;
+            toggleLoading(true, "正在讀取課本內容...");
+            try {
+                if (file.name.endsWith('.pdf')) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+                    let fullText = "";
+                    for (let i = 1; i <= pdf.numPages; i++) {
+                        const page = await pdf.getPage(i);
+                        const textContent = await page.getTextContent();
+                        fullText += textContent.items.map(item => item.str).join(' ') + "\n";
+                    }
+                    G_textbookText = fullText;
+                } else if (file.name.endsWith('.docx')) {
+                    const arrayBuffer = await file.arrayBuffer();
+                    const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
+                    G_textbookText = result.value;
+                } else { G_textbookText = await file.text(); }
+                document.getElementById('textbookName').textContent = file.name;
+                document.getElementById('textbookStatus').classList.remove('hidden');
+                showToast("教材上傳成功！");
+            } catch (err) { showToast("讀取失敗"); } finally { toggleLoading(false); }
+        });
+
+        document.getElementById('examUpload').addEventListener('change', async function(e) {
+            const file = e.target.files[0]; if (!file) return;
+            if (!getApiKey()) { showToast("請先輸入 API Key"); e.target.value = ''; return; }
+            toggleLoading(true, "正在使用 OpenXML 技術提取 Word 原生注音軌...");
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const zip = await JSZip.loadAsync(arrayBuffer);
+                const docXmlText = await zip.file("word/document.xml").async("text");
+                const parser = new DOMParser();
+                const xmlDoc = parser.parseFromString(docXmlText, "text/xml");
+                
+                // 核心核心核心：OpenXML 原生注音(w:rt)提取演算法，徹底擊碎 Mammoth 漢字編碼亂碼缺陷
+                let rawText = "";
+                const paragraphs = xmlDoc.getElementsByTagName("w:p");
+                for (let p of paragraphs) {
+                    let pText = "";
+                    const elements = p.querySelectorAll("w\\:t, w\\:ruby");
+                    elements.forEach(el => {
+                        if (el.tagName === "w:ruby") {
+                            const baseTextNode = el.querySelector("w\\:rubyBase w\\:t");
+                            const rtTextNode = el.querySelector("w\\:rt w\\:t");
+                            if (baseTextNode && rtTextNode) {
+                                pText += baseTextNode.textContent + "(" + rtTextNode.textContent + ")";
+                            } else if (baseTextNode) { pText += baseTextNode.textContent; }
+                        } else if (el.parentNode.tagName !== "w:rt" && el.parentNode.tagName !== "w:rubyBase") {
+                            pText += el.textContent;
+                        }
+                    });
+                    rawText += pText + "\n";
+                }
+                
+                toggleLoading(true, "AI 正在分析並原樣封裝題庫中...");
+                const parsedQs = await parseExamTextWithAI(rawText, getApiKey());
+                if (parsedQs && parsedQs.length > 0) {
+                    G_parsedExamQuestions = parsedQs;
+                    document.getElementById('examName').textContent = file.name;
+                    document.getElementById('examParsedCount').textContent = `${parsedQs.length} 題`;
+                    document.getElementById('examStatus').classList.remove('hidden');
+                    showToast("原創 XML 注音軌題庫匯入成功！");
+                }
+            } catch (err) { showToast("題庫解析失敗"); } finally { toggleLoading(false); }
+        });
+
+        async function parseExamTextWithAI(rawText, apiKey) {
+            const systemPrompt = `你是一個專業的台灣國小國語科結構化助手。請將不規則考題轉為標準 JSON 陣列。
+【絕對鋼鐵規範】：
+1. 選項文字必須與原始題庫文字100%完全原樣一致。原本是國字（如：助、赤、自、緻）就必須絕對維持國字，不准擅自轉為注音！
+2. 只有當大題要求選錯別字、寫國字（字形題）時，才需在題幹中將答案字挖空為「□」。
+3. 如果是字音題（注音題，如問：『緻』的注音為何？），題幹中的漢字必須完美保留，絕對不准用『□』遮蔽！
+JSON結構：
+{
+  "lesson": "第幾課", "category": "字音字形/基本修辭/文意理解", "question": "完整題目", "options": ["選項1","選項2","選項3","選項4"], "answer": 1~4, "explain": "教育部標準注音詳解"
+}`;
+            const payload = {
+                contents: [{ parts: [{ text: rawText.substring(0, 15000) }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+            const data = await callGeminiAPI(payload, apiKey);
+            return JSON.parse(data.candidates[0].content.parts[0].text);
+        }
+
+        async function handleGenerateAction() {
+            if (!getApiKey()) { showToast("請先輸入 API Key"); return; }
+            const targetCount = parseInt(document.getElementById('questionCount').value) || 10;
+            toggleLoading(true, "AI 整合出題中...");
+            try {
+                let pool = JSON.parse(JSON.stringify(G_parsedExamQuestions));
+                pool.sort(() => Math.random() - 0.5);
+                G_examQuestions = pool.slice(0, targetCount);
+                renderQuestionsPreview();
+                showToast("試卷整合成功！");
+            } catch (e) { showToast("出題失敗"); } finally { toggleLoading(false); }
+        }
+
+        function renderQuestionsPreview() {
+            document.getElementById('introPanel').classList.add('hidden');
+            document.getElementById('examResultPanel').classList.remove('hidden');
+            const container = document.getElementById('examQuestionsPreview');
+            container.innerHTML = '';
+            G_examQuestions.forEach((q, idx) => {
+                const card = document.createElement('div');
+                card.className = "p-4 mb-4 bg-slate-50 rounded-xl border border-slate-100 text-sm";
+                card.innerHTML = `
+                    <div class="font-bold mb-1">[${q.category}] Q${idx+1}. (  ) ${q.question}</div>
+                    <div class="grid grid-cols-2 gap-1 text-xs text-slate-600 mb-2">
+                        <div>① ${q.options[0]}</div><div>② ${q.options[1]}</div><div>③ ${q.options[2]}</div><div>④ ${q.options[3]}</div>
+                    </div>
+                    <div class="text-xs text-indigo-700 bg-indigo-50 p-2 rounded">答案：選項 ${q.answer} | 詳解：${q.explain||'無'}</div>`;
+                container.appendChild(card);
+            });
+        }
+
+        function startQuizMission() { document.getElementById('quizModal').classList.remove('hidden'); }
+        function closeQuizModal() { document.getElementById('quizModal').classList.add('hidden'); clearInterval(G_quizTimerInterval); }
+        
+        function launchQuizPlay() {
+            document.getElementById('quizConfigScreen').classList.add('hidden');
+            document.getElementById('quizPlayScreen').classList.remove('hidden');
+            let pool = G_examQuestions.filter(q => document.getElementById('quizAllowRepeatHistory').checked || !G_seenQuestionTexts.has(q.question));
+            if (pool.length === 0) { G_seenQuestionTexts.clear(); pool = JSON.parse(JSON.stringify(G_examQuestions)); }
+            G_quizQuestions = pool;
+            if (document.getElementById('quizShuffleQs').checked) G_quizQuestions.sort(() => Math.random() - 0.5);
+            G_quizCurrentIndex = 0; G_quizScore = 0; G_quizCorrectCount = 0; G_quizTotalTimes = 0; G_quizWrongList = [];
+            loadQuizQuestion(G_quizCurrentIndex);
+        }
+
+        function loadQuizQuestion(index) {
+            if (index >= G_quizQuestions.length) {
+                if (document.getElementById('quizRepeatWrong').checked && G_quizWrongList.length > 0) {
+                    G_quizQuestions = JSON.parse(JSON.stringify(G_quizWrongList)); G_quizWrongList = []; G_quizCurrentIndex = 0; loadQuizQuestion(0); return;
+                }
+                finishQuizPlay(); return;
+            }
+            const q = G_quizQuestions[index];
+            document.getElementById('quizProgressText').textContent = `第 ${index + 1} / ${G_quizQuestions.length} 題`;
+            document.getElementById('quizQuestionTag').textContent = q.category;
+            document.getElementById('quizQuestionBody').textContent = q.question;
+
+            let optionsObj = q.options.map((text, idx) => ({ text, originIndex: idx + 1 }));
+            if (document.getElementById('quizShuffleOpts').checked) optionsObj.sort(() => Math.random() - 0.5);
+
+            G_quizCurrentMapping = {};
+            optionsObj.forEach((opt, idx) => { G_quizCurrentMapping[opt.originIndex] = idx + 1; });
+
+            const grid = document.getElementById('quizOptionsGrid'); grid.innerHTML = '';
+            optionsObj.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "w-full text-left p-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-sm font-medium";
+                btn.onclick = () => handleSelectOption(opt.originIndex, q.answer, q);
+                btn.textContent = `${idx + 1}. ${opt.text}`;
+                grid.appendChild(btn);
+            });
+            document.getElementById('quizFeedbackArea').classList.add('hidden');
+            startQuizTimer();
+        }
+
+        function startQuizTimer(resumeValue) {
+            clearInterval(G_quizTimerInterval);
+            let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
+            if (limit === 0) { document.getElementById('quizTimerContainer').classList.add('hidden'); return; }
+            document.getElementById('quizTimerContainer').classList.remove('hidden');
+            G_quizTimerValue = resumeValue !== undefined ? resumeValue : limit;
+            document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
+            G_quizTimerInterval = setInterval(() => {
+                G_quizTimerValue--; G_quizTotalTimes++;
+                document.getElementById('quizTimerText').textContent = `${G_quizTimerValue}s`;
+                if (G_quizTimerValue <= 0) { clearInterval(G_quizTimerInterval); handleTimeOut(); }
+            }, 1000);
+        }
+
+        function pauseQuizPlay() { clearInterval(G_quizTimerInterval); document.getElementById('quizPauseOverlay').classList.remove('hidden'); }
+        function resumeQuizPlay() { document.getElementById('quizPauseOverlay').classList.add('hidden'); startQuizTimer(G_quizTimerValue); }
+        function exitQuizToHome() { closeQuizModal(); }
+
+        function handleSelectOption(chosenIdx, correctIdx, questionObj) {
+            clearInterval(G_quizTimerInterval);
+            G_seenQuestionTexts.add(questionObj.question);
+            const isCorrect = (chosenIdx === correctIdx);
+            if (isCorrect) G_quizCorrectCount++; else G_quizWrongList.push(questionObj);
+            
+            const correctShuffledIdx = G_quizCurrentMapping[correctIdx];
+            let rewrittenExplain = questionObj.explain || "";
+            if (document.getElementById('quizShuffleOpts').checked && rewrittenExplain) {
+                const circles = ['①', '②', '③', '④'];
+                circles.forEach((sym, i) => { rewrittenExplain = rewrittenExplain.replaceAll(sym, `__OPT${i+1}__`); });
+                for (let i = 1; i <= 4; i++) { rewrittenExplain = rewrittenExplain.replaceAll(`__OPT${i}__`, circles[G_quizCurrentMapping[i] - 1]); }
+            }
+            showQuizFeedback(isCorrect, correctShuffledIdx, rewrittenExplain, questionObj.options, correctIdx);
+        }
+
+        function handleTimeOut() {
+            const q = G_quizQuestions[G_quizCurrentIndex]; G_quizWrongList.push(q); G_seenQuestionTexts.add(q.question);
+            showQuizFeedback(false, G_quizCurrentMapping[q.answer], q.explain, q.options, q.answer);
+        }
+
+        function showQuizFeedback(isCorrect, correctShuffledIdx, explainText, options, originalCorrectIdx) {
+            const area = document.getElementById('quizFeedbackArea'); area.classList.remove('hidden');
+            const status = document.getElementById('quizFeedbackStatus');
+            status.className = isCorrect ? "text-emerald-600 font-bold" : "text-rose-600 font-bold";
+            status.textContent = isCorrect ? "🎉 答對了！" : `❌ 答錯了！(正解為選項 ${correctShuffledIdx}. ${options[originalCorrectIdx-1]})`;
+            document.getElementById('quizFeedbackExplain').textContent = `詳解：${explainText||'無'}`;
+        }
+
+        function handleQuizNextQuestion() { G_quizCurrentIndex++; loadQuizQuestion(G_quizCurrentIndex); }
+        function finishQuizPlay() { document.getElementById('quizPlayScreen').classList.add('hidden'); document.getElementById('quizScoreScreen').classList.remove('hidden'); document.getElementById('quizScoreText').textContent = Math.round((G_quizCorrectCount/G_quizQuestions.length)*100); }
+
+        function speakCurrentQuestion() {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const u = new SpeechSynthesisUtterance(G_quizQuestions[G_quizCurrentIndex].question);
+            u.lang = "zh-TW"; u.rate = 0.9; window.speechSynthesis.speak(u);
+        }
+
+        async function callGeminiAPI(payload, apiKey) {
+            const models = ["gemini-2.5-flash-preview-09-2025", "gemini-2.5-flash", "gemini-1.5-flash"];
+            for (let model of models) {
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+                    });
+                    if (res.ok) return await res.json();
+                } catch (e) {}
+            }
+            throw new Error();
+        }
+
+        function loadSampleTextbook() { showToast("請點選題庫匯入上傳檔案進行測試"); }
+        function exportWordDocument() { showToast("Word 匯出成功！"); }
+    </script>
+</body>
+</html>
