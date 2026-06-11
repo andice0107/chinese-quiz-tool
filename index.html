@@ -119,19 +119,19 @@
                                 <span>字音字形測驗</span>
                             </label>
                             <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
-                                <input type="checkbox" id="typeIdiom" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <input type="checkbox" id="typeIdiom" class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
                                 <span>成語測驗</span>
                             </label>
                             <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
-                                <input type="checkbox" id="typeRhetoric" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <input type="checkbox" id="typeRhetoric" class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
                                 <span>修辭測驗</span>
                             </label>
                             <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer">
-                                <input type="checkbox" id="typeMeaning" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <input type="checkbox" id="typeMeaning" class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
                                 <span>語詞意思測驗</span>
                             </label>
                             <label class="flex items-center gap-2 p-2 hover:bg-slate-50 rounded-lg border border-slate-100 cursor-pointer col-span-2">
-                                <input type="checkbox" id="typeComprehension" checked class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
+                                <input type="checkbox" id="typeComprehension" class="rounded text-violet-600 focus:ring-violet-500 w-4 h-4">
                                 <span>文意理解測驗</span>
                             </label>
                         </div>
@@ -150,7 +150,7 @@
                     <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                 </div>
                 <h3 class="text-xl font-black text-slate-800">準備好進行智能教學了嗎？</h3>
-                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側輸入 API Key 並直接匯入命題光碟檔案。系統已支援大文本自動切片解析，保證一題不漏！</p>
+                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側輸入 API Key 並直接匯入命題光碟檔案。系統已精準鎖定題型過濾機制，並在答題暫停畫面中完整部署了「返回大廳」的控制按鍵！</p>
             </div>
 
             <div id="examResultPanel" class="hidden bg-white rounded-2xl shadow-md p-6 border border-slate-100 flex-1 flex flex-col space-y-6">
@@ -198,9 +198,7 @@
                     </label>
                     <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
                         <input type="checkbox" id="quizAllowRepeatHistory" checked class="rounded text-indigo-600 focus:ring-indigo-500 w-5 h-5">
-                        <div>
-                            <span class="block text-sm font-medium text-slate-800">再次出題時允許重複出已出過的題目</span>
-                        </div>
+                        <div><span class="block text-sm font-medium text-slate-800">再次出題時允許重複出已出過的題目</span></div>
                     </label>
                 </div>
             </div>
@@ -208,9 +206,11 @@
         </div>
 
         <div id="quizPlayScreen" class="hidden bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 p-6 flex flex-col h-[90vh] md:h-auto max-h-[750px] relative overflow-hidden">
-            <div id="quizPauseOverlay" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-6">
-                <h3 class="text-xl font-black text-white">挑戰暫停中</h3>
-                <button onclick="resumeQuizPlay()" class="py-2.5 w-48 bg-emerald-500 text-white font-bold rounded-xl shadow-md">繼續作答</button>
+            <div id="quizPauseOverlay" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-4">
+                <h3 class="text-xl font-black text-white tracking-wider">挑戰暫停中</h3>
+                <p class="text-xs text-slate-200 mb-2">題目內容已安全隱蔽，準備好後即可繼續答題</p>
+                <button onclick="resumeQuizPlay()" class="py-2.5 w-48 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold rounded-xl shadow-md transform active:scale-95 transition-all">繼續作答</button>
+                <button onclick="exitQuizToHome()" class="py-2.5 w-48 bg-slate-800 hover:bg-slate-900 text-white font-bold rounded-xl border border-slate-700 transform active:scale-95 transition-all">返回大廳首頁</button>
             </div>
 
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -371,7 +371,7 @@
                 }
                 document.getElementById('examName').textContent = file.name;
                 document.getElementById('examStatus').classList.remove('hidden');
-                showToast(`超大題庫完美解析完畢，共成功導入 ${G_parsedExamQuestions.length} 題！`);
+                showToast(`大題庫共成功導入 ${G_parsedExamQuestions.length} 題！`);
             } catch (err) { showToast("題庫內文提取失敗"); } finally { toggleLoading(false); }
         });
 
@@ -380,11 +380,11 @@
 【100% 教學現場原樣還原規範】：
 1. 題幹與選項字體字形必須與原始題庫100%完全原樣一致。原本是國字（如：助、赤、自、緻）就必須絕對維持國字，不准擅自轉為注音！
 2. 只有當大題分類是選錯別字、寫國字（字形題）時，才需在題幹中將答案字挖空為「□」。
-3. 如果是字音題（注音題，如問：『緻』的注音為何？或問某組字音是否相同？），題幹與選項中的國字必須完美完整保留，絕對不准用『□』遮蔽！
+3. 如果是字音題（注音題，如問：『緻』的注音為何？或問某組字音是否相同？），題幹與選項中的國字必須完美完整保留，絕對不准用『□』遮蔽！其 category 必須精確標註為 "字音字形"。
 JSON結構：
 [
   {
-    "category": "字音字形/基本修辭/文意理解",
+    "category": "字音字形/基本修辭/文意理解/字詞義及運用",
     "question": "完整題目敘述",
     "options": ["選項1","選項2","選項3","選項4"],
     "answer": 1~4的數字,
@@ -403,13 +403,32 @@ JSON結構：
         async function handleGenerateAction() {
             if (!getApiKey()) { showToast("請先輸入 API Key"); return; }
             const targetCount = parseInt(document.getElementById('questionCount').value) || 10;
-            toggleLoading(true, "正在篩選整合試卷考題...");
+            toggleLoading(true, "正在精準篩選您勾選的題型...");
+            
+            // 建立嚴格的題型對齊字典
+            const enabledCategories = [];
+            if (document.getElementById('typePhonetics').checked) enabledCategories.push("字音字形");
+            if (document.getElementById('typeIdiom').checked) enabledCategories.push("成語測驗", "生字延伸成語");
+            if (document.getElementById('typeRhetoric').checked) enabledCategories.push("修辭測驗", "基本修辭");
+            if (document.getElementById('typeMeaning').checked) enabledCategories.push("語詞意思測驗", "字詞義及運用", "文字語詞意思測驗");
+            if (document.getElementById('typeComprehension').checked) enabledCategories.push("文意理解測驗", "文意理解");
+
             try {
-                let pool = JSON.parse(JSON.stringify(G_parsedExamQuestions));
+                // 【精準過濾核心】：硬性強制只允許勾選的題型分流進入
+                let pool = G_parsedExamQuestions.filter(q => {
+                    return enabledCategories.some(cat => q.category && q.category.includes(cat));
+                });
+
+                if (pool.length === 0) {
+                    showToast("目前題庫中沒有完全符合您勾選題型的題目，請重新檢查設定。");
+                    toggleLoading(false);
+                    return;
+                }
+
                 pool.sort(() => Math.random() - 0.5);
                 G_examQuestions = pool.slice(0, targetCount);
                 renderQuestionsPreview();
-                showToast("考題試卷整合完畢！");
+                showToast(`已精準挑選出 ${G_examQuestions.length} 題純您指定題型的試卷！`);
             } catch (e) { showToast("出題失敗"); } finally { toggleLoading(false); }
         }
 
@@ -437,7 +456,6 @@ JSON結構：
             document.getElementById('quizConfigScreen').classList.add('hidden');
             document.getElementById('quizPlayScreen').classList.remove('hidden');
             
-            // 【核心邏輯回補】：根據 quizAllowRepeatHistory 是否打勾，決定是否過濾做過的考題
             const allowRepeatHistory = document.getElementById('quizAllowRepeatHistory').checked;
             let pool = JSON.parse(JSON.stringify(G_examQuestions));
             
@@ -499,10 +517,11 @@ JSON結構：
 
         function pauseQuizPlay() { clearInterval(G_quizTimerInterval); document.getElementById('quizPauseOverlay').classList.remove('hidden'); }
         function resumeQuizPlay() { document.getElementById('quizPauseOverlay').classList.add('hidden'); startQuizTimer(); }
+        function exitQuizToHome() { closeQuizModal(); document.getElementById('quizConfigScreen').classList.remove('hidden'); }
 
         function handleSelectOption(chosenIdx, correctIdx, questionObj) {
             clearInterval(G_quizTimerInterval);
-            G_seenQuestionTexts.add(questionObj.question); // 寫入作答歷史記錄
+            G_seenQuestionTexts.add(questionObj.question);
             const isCorrect = (chosenIdx === correctIdx);
             if (!isCorrect) G_quizWrongList.push(questionObj);
             
