@@ -41,6 +41,7 @@
         </div>
     </header>
 
+    <!-- 主區塊：左側設定，右側預覽 -->
     <main class="flex-1 max-w-7xl mx-auto p-4 md:p-6 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section class="lg:col-span-5 space-y-6">
             <!-- 1. 課本教材解析 -->
@@ -163,6 +164,7 @@
             </button>
         </section>
 
+        <!-- 右側預覽大廳 -->
         <section class="lg:col-span-7 flex flex-col space-y-6">
             <div id="introPanel" class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 flex-1 flex flex-col items-center justify-center text-center space-y-4">
                 <div class="p-4 bg-indigo-50 rounded-full text-indigo-600">
@@ -197,11 +199,17 @@
             <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-bold text-slate-600 mb-1.5">單題答題時間</label>
-                    <select id="quizTimerConfig" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500">
-                        <option value="0">不限時間</option>
-                        <option value="15">15 秒</option>
-                        <option value="30" selected>30 秒</option>
-                    </select>
+                    <div class="flex gap-2">
+                        <select id="quizTimerConfig" onchange="toggleCustomTimerInput(this.value)" class="flex-1 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-white">
+                            <option value="0">不限時間</option>
+                            <option value="10">10 秒</option>
+                            <option value="15">15 秒</option>
+                            <option value="30" selected>30 秒</option>
+                            <option value="60">60 秒</option>
+                            <option value="custom">自訂秒數</option>
+                        </select>
+                        <input type="number" id="customTimerInput" placeholder="輸入秒數" class="hidden w-28 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" min="1">
+                    </div>
                 </div>
                 <div class="space-y-3">
                     <label class="flex items-center gap-3 p-3 hover:bg-slate-50 rounded-xl border border-slate-100 cursor-pointer">
@@ -225,6 +233,7 @@
             <button onclick="launchQuizPlay()" class="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-bold py-3 rounded-xl shadow-lg flex items-center justify-center gap-2">開始挑戰答題任務</button>
         </div>
 
+        <!-- 答題進行中面板 -->
         <div id="quizPlayScreen" class="hidden bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 p-6 flex flex-col h-[90vh] md:h-auto max-h-[750px] relative overflow-hidden">
             <!-- 暫停畫面 -->
             <div id="quizPauseOverlay" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-4">
@@ -257,6 +266,46 @@
                 <button onclick="handleQuizNextQuestion()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl">下一題</button>
             </div>
         </div>
+
+        <!-- 最終結算統計與錯題檢討大面板 -->
+        <div id="quizScoreScreen" class="hidden bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 p-6 flex flex-col h-[90vh] max-h-[700px] overflow-hidden">
+            <h3 class="text-xl font-black text-slate-800 text-center pb-3 border-b border-slate-100">🏆 答題任務挑戰結果與錯題檢討</h3>
+            
+            <div class="flex-1 overflow-y-auto custom-scrollbar my-4 pr-1 space-y-6">
+                <!-- 成績總覽 -->
+                <div class="grid grid-cols-3 gap-3 text-center">
+                    <div class="bg-indigo-50 rounded-2xl p-3 border border-indigo-100">
+                        <span class="block text-slate-400 text-xs font-medium">總得分</span>
+                        <span class="text-2xl font-black text-indigo-600" id="quizScoreText">0</span><span class="text-xs text-indigo-400"> 分</span>
+                    </div>
+                    <div class="bg-emerald-50 rounded-2xl p-3 border border-emerald-100">
+                        <span class="block text-slate-400 text-xs font-medium">答對題數</span>
+                        <span class="text-2xl font-black text-emerald-600" id="quizCorrectCountText">0 題</span>
+                    </div>
+                    <div class="bg-amber-50 rounded-2xl p-3 border border-amber-100">
+                        <span class="block text-slate-400 text-xs font-medium">答錯題數</span>
+                        <span class="text-2xl font-black text-rose-600" id="quizWrongCountText">0 題</span>
+                    </div>
+                </div>
+
+                <!-- 錯題列表回顧 -->
+                <div class="space-y-3">
+                    <h4 class="text-sm font-bold text-slate-700 flex items-center gap-1">
+                        <span class="w-2.5 h-2.5 bg-rose-500 rounded-full"></span>
+                        答錯題目檢討列表
+                    </h4>
+                    <div id="quizWrongQuestionsContainer" class="space-y-3">
+                        <!-- 動態載入錯題 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制按鈕 -->
+            <div class="flex gap-3 pt-3 border-t border-slate-100">
+                <button onclick="launchQuizPlay()" class="flex-1 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl shadow-md transition-all active:scale-95">再做一次</button>
+                <button onclick="closeQuizModal()" class="flex-1 py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all active:scale-95">回到首頁</button>
+            </div>
+        </div>
     </div>
 
     <!-- Loading 與 Toast -->
@@ -268,26 +317,27 @@
         <span id="toastText"></span>
     </div>
 
+    <!-- 邏輯引擎核心 -->
     <script>
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
-
         let G_apiKey = "", G_textbookText = "";
         let G_examQuestions = [], G_parsedExamQuestions = [], G_seenQuestionTexts = new Set();
         let G_quizCurrentIndex = 0, G_quizQuestions = [], G_quizTimerValue = 0, G_quizTimerInterval = null, G_quizWrongList = [], G_quizCurrentMapping = {};
+        
+        // 用作錯題統計的暫存數據
+        let G_quizScoreData = { score: 0, correct: 0, wrong: 0, wrongQuestionsList: [] };
 
-        // 台灣標準國音字典對應表
+        // 台灣教育部標準字音精密校正映射表 (100% 覆寫，修正 噸、擅、哲 等偏誤)
         const BOPOMOFO_MAP = {
+            "噸": "ㄉㄨㄣˋ", "擅": "ㄕㄢˋ", "哲": "ㄓㄜˊ", "緻": "ㄓˋ",
             "罐": "ㄍㄨㄢˋ", "冠": "ㄍㄨㄢ", "灌": "ㄍㄨㄢˋ", "貫": "ㄍㄨㄢˋ",
-            "緻": "ㄓˋ", "助": "ㄓㄨˋ", "赤": "ㄔˋ", "自": "ㄗˋ",
             "好": "ㄏㄠˋ", "惡": "ㄨˋ", "逸": "ㄧˋ", "勞": "ㄌㄠˊ",
             "傍": "ㄅㄤ", "晚": "ㄨㄢˇ", "水": "ㄕㄨㄟˇ", "礁": "ㄐㄧㄠ",
             "焦": "ㄐㄧㄠ", "筏": "ㄈㄚˊ", "伐": "ㄈㄚˊ", "捏": "ㄋㄧㄝ",
             "爐": "ㄌㄨˊ", "考": "ㄎㄠˇ", "烤": "ㄎㄠˇ", "復": "ㄈㄨˋ",
-            "複": "ㄈㄨˋ", "腹": "ㄈㄨˋ", "擅": "ㄕㄢˋ", "理": "ㄌㄧˇ",
-            "哲": "ㄓㄜˊ"
+            "複": "ㄈㄨˋ", "腹": "ㄈㄨˋ"
         };
 
-        // 頁面加載時，自動載入本機永久記住的 API Key
+        // 頁面加載完成時，自動載入本機永久記住的 API Key
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('gemini_api_key');
             if (savedKey) {
@@ -315,6 +365,15 @@
         }
         
         function getApiKey() { return document.getElementById('apiKeyInput').value.trim() || G_apiKey; }
+
+        function toggleCustomTimerInput(val) {
+            const input = document.getElementById('customTimerInput');
+            if (val === "custom") {
+                input.classList.remove('hidden');
+            } else {
+                input.classList.add('hidden');
+            }
+        }
 
         // 1. 課本電子檔解析上傳
         document.getElementById('textbookUpload').addEventListener('change', async function(e) {
@@ -474,6 +533,7 @@ JSON結構：
             const targetCount = parseInt(document.getElementById('questionCount').value) || 10;
             const difficulty = document.getElementById('difficultySelect').value;
             
+            // 嚴格篩選出勾選的題型 (不允許任何未勾選的題型混入！)
             const enabledCategories = [];
             if (document.getElementById('typePhonetics').checked) enabledCategories.push("字音字形");
             if (document.getElementById('typeIdiom').checked) enabledCategories.push("成語測驗", "生字延伸成語");
@@ -492,7 +552,7 @@ JSON結構：
                 if (G_parsedExamQuestions.length > 0) {
                     // 軌道一：有匯入光碟題庫 -> 優先從中精準篩選
                     let pool = G_parsedExamQuestions.filter(q => {
-                        return enabledCategories.some(cat => q.category && q.category.includes(cat));
+                        return enabledCategories.some(cat => q.category && q.category.trim() === cat);
                     });
 
                     if (pool.length === 0) {
@@ -510,7 +570,11 @@ JSON結構：
                     toggleLoading(true, `正在由 AI 依課文生成全新國語考題 (難度: ${difficulty})...`);
                     const generated = await generateQuestionsFromTextbook(G_textbookText, targetCount, enabledCategories, difficulty, getApiKey());
                     if (generated && generated.length > 0) {
-                        G_examQuestions = generated;
+                        // 雙重前端硬性檢驗：過濾任何不合規的AI幻覺類別
+                        G_examQuestions = generated.filter(q => {
+                            return enabledCategories.some(cat => q.category && q.category.trim() === cat);
+                        }).slice(0, targetCount);
+                        
                         renderQuestionsPreview();
                         showToast(`成功依教材內容生成 ${G_examQuestions.length} 題指定考題！`);
                     } else {
@@ -526,17 +590,18 @@ JSON結構：
             }
         }
 
+        // 智慧課文出題生成器（支援改錯字、生字檢索及素養段落擷取）
         async function generateQuestionsFromTextbook(text, count, categories, difficulty, apiKey) {
             const systemPrompt = `你是一個專業的台灣國小國語科命題教師。請根據提供的課本教材內容，精準生成指定題數與難度的國語科選擇題。
-【極嚴格！教材情境擷取與國音淨化規範】：
-1. 擷取課文情境段落（核心要求）：凡是「語詞意思」、「文意理解」、「基本修辭」等題目，你必須從課本教材中精準擷取「含有該目標字詞的完整句子或課文段落」作為題幹背景。絕對不允許出毫無上下文情境的『請問「某語詞」是什麼意思？』。必須重構為：『在課文「（擷取的課文完整句子）」中，請問「（目標語詞）」的意思最接近下列何者？』，讓學童能根據課文情境進行合理的上下文語義推論。
-2. 國音淨化與防洩題：如果是考字音題（例如考「擅」或「哲」的注音），題幹情境字詞必須是乾淨、無注音符號干擾的純國字（如『擅長』、『哲理』），絕對不允許在題幹中混入該字的注音符號（如出現『ㄕㄢˋ』、『ㄓㄜˊ』），否則就是直接洩漏答案給學生！
-3. 難易度設定：
-   - 基礎：聚焦生字、字音字形辨析、詞語直接解釋與課文內容直接文意。
-   - 中等：增加詞義運用情境題、基本修辭（如譬喻、設問、轉化）辨析、成語應用。
-   - 挑戰：注重深度的文意理解、主旨推論、複雜修辭與跨情境的字詞字音多載音辨析。
-   目前設定的難易度為：【${difficulty}】。
-4. 格式：必須返回一個純 JSON 陣列，不包含 \`\`\`json 等 Markdown 包裝字元。
+【極嚴格！教材情境擷取、生字鎖定與國音還原規範】：
+1. 必須明確指出課名與精確段落：出題時絕對不准直接講『課文第六段...』！你必須明確指出是哪一課的課文（例如：『在第十課〈海洋的殺手〉第六段中...』），並且必須在題幹中包含你提到該段落的核心句子文字，讓學生可以明確在題目中讀取段落前後文情境！
+2. 鎖定生字與認讀字：問字的讀音（字音題）、語詞的解釋（字義題）、漢字怎麼寫（字形題），都必須是本課課文中提及的「核心生字」或「認讀字」！絕對不能隨便抽考非本課生字的普通漢字！
+3. 字音字形大題必須包含「改錯字題型」：
+   - 只要有勾選「字音字形」，除了考注音或漢字之外，你必須設計「改錯字」題目。
+   - 方式：你可以直接擷取課本原句，或是自行設計一段蘊含該課核心生字的錯別字句子，並在題幹中詢問例如：『這句話中總共有幾個錯別字？』，並在選項提供正確數量，或問：『這句話中哪一個是錯別字？』。
+4. 拒絕死板問答（情境擷取）：嚴禁出那種直接詢問『請問「某語詞」是什麼意思？』的無情境死板題目。你必須擷取課本該段落有此生字的完整上下段落句子，格式必須為：『在第X課〈課名〉句子「(完整課本段落文字)」中，請問「(目標生字)」的意思最接近下列何者？』。
+5. 臺灣標準注音 (噸為 ㄉㄨㄣˋ 等四聲)：你必須遵循台灣教育部標準字音。例如「噸」字必須是四聲「ㄉㄨㄣˋ」，絕不能出成一聲！「擅」為「ㄕㄢˋ」、「哲」為「ㄓㄜˊ」。
+6. 格式：必須返回一個純 JSON 陣列，不包含 \`\`\`json 等 Markdown 包裝字元。
 
 JSON 結構：
 [
@@ -599,6 +664,7 @@ JSON 結構：
 
         function launchQuizPlay() {
             document.getElementById('quizConfigScreen').classList.add('hidden');
+            document.getElementById('quizScoreScreen').classList.add('hidden');
             document.getElementById('quizPlayScreen').classList.remove('hidden');
             
             const allowRepeatHistory = document.getElementById('quizAllowRepeatHistory').checked;
@@ -615,6 +681,10 @@ JSON 結構：
             G_quizQuestions = pool;
             if (document.getElementById('quizShuffleQs').checked) G_quizQuestions.sort(() => Math.random() - 0.5);
             G_quizCurrentIndex = 0; G_quizWrongList = [];
+            
+            // 答題任務成績統計初始化
+            G_quizScoreData = { score: 0, correct: 0, wrong: 0, wrongQuestionsList: [] };
+
             loadQuizQuestion(G_quizCurrentIndex);
         }
 
@@ -646,14 +716,23 @@ JSON 結構：
             });
             document.getElementById('quizFeedbackArea').classList.add('hidden');
             
-            let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
-            startQuizTimer(limit);
+            // 獲取自訂或預設秒數
+            let timerSetting = document.getElementById('quizTimerConfig').value;
+            let secondsValue = 0;
+            if (timerSetting === "custom") {
+                secondsValue = parseInt(document.getElementById('customTimerInput').value) || 30;
+            } else {
+                secondsValue = parseInt(timerSetting) || 0;
+            }
+
+            startQuizTimer(secondsValue);
         }
 
         // 精準倒數計時引擎 (支援暫停接續)
         function startQuizTimer(secondsValue) {
             clearInterval(G_quizTimerInterval);
-            let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
+            let timerSetting = document.getElementById('quizTimerConfig').value;
+            let limit = timerSetting === "custom" ? (parseInt(document.getElementById('customTimerInput').value) || 30) : (parseInt(timerSetting) || 0);
             if (limit === 0) { document.getElementById('quizTimerContainer').classList.add('hidden'); return; }
             document.getElementById('quizTimerContainer').classList.remove('hidden');
             
@@ -683,9 +762,24 @@ JSON 結構：
             clearInterval(G_quizTimerInterval);
             G_seenQuestionTexts.add(questionObj.question);
             const isCorrect = (chosenIdx === correctIdx);
-            if (!isCorrect) G_quizWrongList.push(questionObj);
             
             const correctShuffledIdx = G_quizCurrentMapping[correctIdx];
+            const chosenShuffledIdx = G_quizCurrentMapping[chosenIdx];
+            
+            if (isCorrect) {
+                G_quizScoreData.correct++;
+            } else {
+                G_quizWrongList.push(questionObj);
+                G_quizScoreData.wrong++;
+                G_quizScoreData.wrongQuestionsList.push({
+                    question: questionObj.question,
+                    category: questionObj.category,
+                    chosen: questionObj.options[chosenIdx - 1] || "未選擇",
+                    correct: questionObj.options[correctIdx - 1],
+                    explain: questionObj.explain || "無"
+                });
+            }
+            
             let rewrittenExplain = questionObj.explain || "";
             if (document.getElementById('quizShuffleOpts').checked && rewrittenExplain) {
                 const circles = ['①', '②', '③', '④'];
@@ -696,7 +790,17 @@ JSON 結構：
         }
 
         function handleTimeOut() {
-            const q = G_quizQuestions[G_quizCurrentIndex]; G_quizWrongList.push(q); G_seenQuestionTexts.add(q.question);
+            const q = G_quizQuestions[G_quizCurrentIndex]; 
+            G_quizWrongList.push(q); 
+            G_seenQuestionTexts.add(q.question);
+            G_quizScoreData.wrong++;
+            G_quizScoreData.wrongQuestionsList.push({
+                question: q.question,
+                category: q.category,
+                chosen: "時間超時",
+                correct: q.options[q.answer - 1],
+                explain: q.explain || "無"
+            });
             showQuizFeedback(false, G_quizCurrentMapping[q.answer], q.explain, q.options, q.answer);
         }
 
@@ -709,13 +813,52 @@ JSON 結構：
         }
 
         function handleQuizNextQuestion() { G_quizCurrentIndex++; loadQuizQuestion(G_quizCurrentIndex); }
-        function finishQuizPlay() { document.getElementById('quizPlayScreen').classList.add('hidden'); document.getElementById('quizScoreScreen').classList.remove('hidden'); document.getElementById('quizScoreText').textContent = "挑戰完畢"; }
+        
+        // 答題任務挑戰結算與檢討大面板顯示
+        function finishQuizPlay() { 
+            document.getElementById('quizPlayScreen').classList.add('hidden'); 
+            const scoreScreen = document.getElementById('quizScoreScreen');
+            scoreScreen.classList.remove('hidden'); 
 
-        function speakCurrentQuestion() {
-            if (!('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const u = new SpeechSynthesisUtterance(G_quizQuestions[G_quizCurrentIndex].question);
-            u.lang = "zh-TW"; u.rate = 0.9; window.speechSynthesis.speak(u);
+            // 計算最終得分
+            const totalQs = G_quizQuestions.length;
+            const finalScore = Math.round((G_quizScoreData.correct / totalQs) * 100);
+            
+            document.getElementById('quizScoreText').textContent = finalScore;
+            document.getElementById('quizCorrectCountText').textContent = `${G_quizScoreData.correct} / ${totalQs} 題`;
+            document.getElementById('quizWrongCountText').textContent = `${G_quizScoreData.wrong} / ${totalQs} 題`;
+
+            // 渲染錯題檢討列表
+            const container = document.getElementById('quizWrongQuestionsContainer');
+            container.innerHTML = '';
+
+            if (G_quizScoreData.wrongQuestionsList.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-8 text-emerald-600 font-bold text-sm bg-emerald-50 border border-emerald-100 rounded-2xl">
+                        🌟 恭喜！本次挑戰全對，沒有任何錯題喔！老師為你感到無比驕傲！
+                    </div>
+                `;
+            } else {
+                G_quizScoreData.wrongQuestionsList.forEach((wq, idx) => {
+                    const card = document.createElement('div');
+                    card.className = "p-4 bg-rose-50 border border-rose-100 rounded-2xl text-xs space-y-2";
+                    card.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <span class="px-2 py-0.5 bg-rose-200 text-rose-800 font-black rounded-md">${wq.category}</span>
+                            <span class="text-slate-400 font-bold">檢討 #${idx + 1}</span>
+                        </div>
+                        <p class="font-bold text-slate-800 text-sm leading-relaxed">${wq.question}</p>
+                        <div class="grid grid-cols-2 gap-2 font-medium">
+                            <div class="text-rose-600">你的選擇：${wq.chosen}</div>
+                            <div class="text-emerald-600">正確解答：${wq.correct}</div>
+                        </div>
+                        <div class="pt-2 border-t border-rose-100 text-slate-600 leading-relaxed bg-white/50 p-2 rounded-lg">
+                            <span class="font-bold text-indigo-700">解析說：</span>${wq.explain}
+                        </div>
+                    `;
+                    container.appendChild(card);
+                });
+            }
         }
 
         async function callGeminiAPI(payload, apiKey) {
