@@ -114,7 +114,7 @@
                     <span class="p-1.5 bg-violet-50 text-violet-600 rounded-lg">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" /></svg>
                     </span>
-                    3. 教學命題參數與題型勾選
+                    3. 教學命題 parameters 與題型勾選
                 </h2>
                 <div class="space-y-4">
                     <div class="grid grid-cols-2 gap-3">
@@ -375,7 +375,7 @@
             }
         }
 
-        // 1. 課本電子檔解析上傳
+        // 1. 課本教材解析與範圍設定
         document.getElementById('textbookUpload').addEventListener('change', async function(e) {
             const file = e.target.files[0]; if (!file) return;
             toggleLoading(true, "正在讀取電子教材內容...");
@@ -404,7 +404,7 @@
             } catch (err) { showToast("教材讀取失敗，請確認檔案。"); } finally { toggleLoading(false); }
         });
 
-        // 2. 題庫 Word/PDF 匯入（優先代入）
+        // 2. 命題光碟題庫匯入
         document.getElementById('examUpload').addEventListener('change', async function(e) {
             const file = e.target.files[0]; if (!file) return;
             if (!getApiKey()) { showToast("請先輸入 API Key"); e.target.value = ''; return; }
@@ -566,7 +566,7 @@ JSON結構：
                     renderQuestionsPreview();
                     showToast(`已從命題題庫中挑選出 ${G_examQuestions.length} 題指定考題！`);
                 } else if (G_textbookText.trim().length > 0) {
-                    // 軌道二：無題庫但有課本內容 -> AI 依課文及指定難度即時出題
+                    // 軌道二：無題庫但有課本內容 -> AI 依課文及指定難度即時分批生成，確保精準補足 20 題以上！
                     toggleLoading(true, `正在由 AI 依課文生成全新國語考題 (難度: ${difficulty})...`);
                     const generated = await generateQuestionsFromTextbook(G_textbookText, targetCount, enabledCategories, difficulty, getApiKey());
                     if (generated && generated.length > 0) {
@@ -590,8 +590,61 @@ JSON結構：
             }
         }
 
-        // 智慧課文出題生成器（支援改錯字、生字檢索及素養段落擷取）
+        // 智慧課文出題生成器（支援自訂分批、重疊視窗與智慧 Top-up 補題機制）
         async function generateQuestionsFromTextbook(text, count, categories, difficulty, apiKey) {
+            let finalQuestions = [];
+            let attempts = 0;
+            const maxAttempts = 6; // 預防死迴圈
+            let textPointer = 0;
+            const chunkStep = 4000; // 每一步向前推進 4000 字
+
+            while (finalQuestions.length < count && attempts < maxAttempts) {
+                attempts++;
+                const needed = count - finalQuestions.length;
+                // 每批次最多要求 5 題，確保 AI 生成結構不遺失
+                const currentBatchSize = Math.min(5, needed); 
+
+                // 重疊滑動視窗擷取，充分利用付費 API
+                const startIdx = textPointer % Math.max(1, text.length - 8000);
+                const textSegment = text.substring(startIdx, startIdx + 8000);
+                textPointer += chunkStep;
+
+                toggleLoading(true, `AI 正在解析並分批生成課文考題 (進度: ${finalQuestions.length}/${count})...`);
+
+                const batchQs = await callGenerateBatch(textSegment, currentBatchSize, categories, difficulty, apiKey);
+                if (batchQs && batchQs.length > 0) {
+                    // 即時套用台灣國音與漏題過濾
+                    const verifiedQs = batchQs.map(q => {
+                        if (q.category === "字音字形") {
+                            let answerText = q.options[q.answer - 1];
+                            if (answerText && q.question.includes(`「${answerText}」`)) {
+                                let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
+                                q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
+                            }
+                            if (answerText && q.question.includes(`『${answerText}』`)) {
+                                let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
+                                q.question = q.question.replace(`『${answerText}』`, `『${bopomofoText}』`);
+                            }
+                        }
+                        return q;
+                    }).filter(q => {
+                        // 確保完全符合選取題型才准進入
+                        return categories.some(cat => q.category && q.category.trim() === cat);
+                    });
+
+                    finalQuestions = finalQuestions.concat(verifiedQs);
+                }
+
+                // 為了避免過於頻繁呼叫，加上極微小的延遲，兼顧速度與付費 API 限制
+                if (finalQuestions.length < count && attempts < maxAttempts) {
+                    await new Promise(resolve => setTimeout(resolve, 1200));
+                }
+            }
+
+            return finalQuestions.slice(0, count);
+        }
+
+        async function callGenerateBatch(textSegment, batchSize, categories, difficulty, apiKey) {
             const systemPrompt = `你是一個專業的台灣國小國語科命題教師。請根據提供的課本教材內容，精準生成指定題數與難度的國語科選擇題。
 【極嚴格！教材情境擷取、生字鎖定與國音還原規範】：
 1. 必須明確指出課名與精確段落：出題時絕對不准直接講『課文第六段...』！你必須明確指出是哪一課的課文（例如：『在第十課〈海洋的殺手〉第六段中...』），並且必須在題幹中包含你提到該段落的核心句子文字，讓學生可以明確在題目中讀取段落前後文情境！
@@ -601,7 +654,8 @@ JSON結構：
    - 方式：你可以直接擷取課本原句，或是自行設計一段蘊含該課核心生字的錯別字句子，並在題幹中詢問例如：『這句話中總共有幾個錯別字？』，並在選項提供正確數量，或問：『這句話中哪一個是錯別字？』。
 4. 拒絕死板問答（情境擷取）：嚴禁出那種直接詢問『請問「某語詞」是什麼意思？』的無情境死板題目。你必須擷取課本該段落有此生字的完整上下段落句子，格式必須為：『在第X課〈課名〉句子「(完整課本段落文字)」中，請問「(目標生字)」的意思最接近下列何者？』。
 5. 臺灣標準注音 (噸為 ㄉㄨㄣˋ 等四聲)：你必須遵循台灣教育部標準字音。例如「噸」字必須是四聲「ㄉㄨㄣˋ」，絕不能出成一聲！「擅」為「ㄕㄢˋ」、「哲」為「ㄓㄜˊ」。
-6. 格式：必須返回一個純 JSON 陣列，不包含 \`\`\`json 等 Markdown 包裝字元。
+6. 限制：本批次最多只能生成 ${batchSize} 題！題目大題類別（category）必須從 [${categories.join(', ')}] 中嚴格選擇，不得自創！
+7. 格式：必須返回一個純 JSON 陣列，不包含 \`\`\`json 等 Markdown 包裝字元。
 
 JSON 結構：
 [
@@ -614,49 +668,18 @@ JSON 結構：
   }
 ]`;
 
-            // 確保擷取豐富內文片段以利 AI 尋找上下文
-            const textSegment = text.substring(0, 15000);
             const payload = {
-                contents: [{ parts: [{ text: `請幫我從以下教材內容中，出【${difficulty}】難度、符合指定題型的大約 ${count} 題考題：\n\n${textSegment}` }] }],
+                contents: [{ parts: [{ text: `請幫我從以下教材內容中，出【${difficulty}】難度、符合指定題型的大約 ${batchSize} 題考題：\n\n${textSegment}` }] }],
                 systemInstruction: { parts: [{ text: systemPrompt }] },
                 generationConfig: { responseMimeType: "application/json" }
             };
 
             const data = await callGeminiAPI(payload, apiKey);
             try {
-                let list = JSON.parse(data.candidates[0].content.parts[0].text);
-                return list.map(q => {
-                    if (q.category === "字音字形") {
-                        let answerText = q.options[q.answer - 1];
-                        if (answerText && q.question.includes(`「${answerText}」`)) {
-                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
-                            q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
-                        }
-                        if (answerText && q.question.includes(`『${answerText}』`)) {
-                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
-                            q.question = q.question.replace(`『${answerText}』`, `『${bopomofoText}』`);
-                        }
-                    }
-                    return q;
-                });
-            } catch(e) { return []; }
-        }
-
-        function renderQuestionsPreview() {
-            document.getElementById('introPanel').classList.add('hidden');
-            document.getElementById('examResultPanel').classList.remove('hidden');
-            const container = document.getElementById('examQuestionsPreview'); container.innerHTML = '';
-            G_examQuestions.forEach((q, idx) => {
-                const card = document.createElement('div');
-                card.className = "p-4 mb-4 bg-slate-50 rounded-xl border border-slate-100 text-sm";
-                card.innerHTML = `
-                    <div class="font-bold mb-1">[${q.category}] Q${idx+1}. (　　) ${q.question}</div>
-                    <div class="grid grid-cols-2 gap-1 text-xs text-slate-600 mb-2">
-                        <div>① ${q.options[0]}</div><div>② ${q.options[1]}</div><div>③ ${q.options[2]}</div><div>④ ${q.options[3]}</div>
-                    </div>
-                    <div class="text-xs text-indigo-700 bg-indigo-50 p-2 rounded">正解：選項 ${q.answer} | 詳解：${q.explain||'無'}</div>`;
-                container.appendChild(card);
-            });
+                return JSON.parse(data.candidates[0].content.parts[0].text);
+            } catch(e) {
+                return [];
+            }
         }
 
         function startQuizMission() { document.getElementById('quizModal').classList.remove('hidden'); }
@@ -873,8 +896,6 @@ JSON 結構：
             }
             throw new Error();
         }
-        function clearUploadedTextbook() { document.getElementById('textbookUpload').value = ''; document.getElementById('textbookStatus').classList.add('hidden'); G_textbookText = ""; }
-        function clearUploadedExam() { document.getElementById('examUpload').value = ''; document.getElementById('examStatus').classList.add('hidden'); G_parsedExamQuestions = []; }
     </script>
 </body>
 </html>
