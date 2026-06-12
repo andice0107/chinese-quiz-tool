@@ -355,7 +355,7 @@
             const toast = document.getElementById('toastNotification');
             document.getElementById('toastText').textContent = text;
             toast.style.opacity = "1";
-            setTimeout(() => { toast.style.opacity = "0"; }, 3000);
+            setTimeout(() => { toast.style.opacity = "0"; }, 4000);
         }
         
         function toggleLoading(show, text) {
@@ -489,44 +489,6 @@
             } catch (err) { showToast("題庫內文提取或解析失敗"); } finally { toggleLoading(false); }
         });
 
-        async function parseExamChunkWithAI(textSegment, apiKey) {
-            const systemPrompt = `你是一個專業的台灣國小國語科結構化助手。請將傳入的考題文本片段轉為標準 JSON 陣列。
-【極嚴格！國音淨化與防洩題規範】：
-1. 淨化注音噪音：由於題庫來源可能有PDF轉檔字型位移亂碼（如將注音與國字拆碎為『ㄕㄢˋ長』、『哲ㄌㄧˇ』），你必須將這些破碎的拼音與注音符號完全清除，並還原成乾淨標準國字的正常詞彙。例如：必須把『ㄕㄢˋ長』和『哲ㄌㄧˇ』完全修復為國字『擅長』、『哲理』。題幹中絕對不允許出現半漢字半拼音的破碎字詞！
-2. 題幹絕對不能洩密：如果題目考字音/注音題（例如考「擅」或「哲」的注音），題幹中的該字詞必須以乾淨的國字呈現（如『擅長』、『哲理』），絕對不允許在題幹句子中直接寫出其答案注音（如『ㄕㄢˋ』、『ㄓㄜˊ』），否則等於直接洩漏答案給學生！
-3. 擷取完整情境段落：凡是「語詞意思測驗」、「文意理解測驗」，你必須從傳入的文本中擷取該語詞所在的「完整句子或上下段落」作為題幹情境。嚴禁出那種毫無情境、直接詢問『請問「某語詞」是什麼意思？』的死板題目。你必須採用：『在課文「（完整句子段落）」中，請問「（目標語詞）」的意思是什麼？』的格式命題，以便學童根據上下文推論。
-
-JSON結構：
-[
-  {
-    "category": "字音字形/基本修辭/文意理解/字詞義及運用",
-    "question": "完整情境題目敘述 (確保注音題不帶注音，且語詞題必須擷取情境段落)",
-    "options": ["選項1","選項2","選項3","選項4"],
-    "answer": 1~4的數字,
-    "explain": "台灣標準注音詳解說明"
-  }
-]`;
-            const payload = {
-                contents: [{ parts: [{ text: textSegment }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: { responseMimeType: "application/json" }
-            };
-            const data = await callGeminiAPI(payload, apiKey);
-            try { 
-                let list = JSON.parse(data.candidates[0].content.parts[0].text); 
-                return list.map(q => {
-                    if (q.category === "字音字形") {
-                        let answerText = q.options[q.answer - 1];
-                        if (answerText && q.question.includes(`「${answerText}」`)) {
-                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
-                            q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
-                        }
-                    }
-                    return q;
-                });
-            } catch(e) { return []; }
-        }
-
         // 雙軌整合出題控制核心
         async function handleGenerateAction() {
             if (!getApiKey()) { showToast("請先輸入 API Key"); return; }
@@ -567,24 +529,34 @@ JSON結構：
                     showToast(`已從命題題庫中挑選出 ${G_examQuestions.length} 題指定考題！`);
                 } else if (G_textbookText.trim().length > 0) {
                     // 軌道二：無題庫但有課本內容 -> AI 依課文及指定難度即時分批生成，確保精準補足 20 題以上！
+                    if (G_textbookText.trim().length < 150) {
+                        showToast("偵測到教材字數過少，可能為不支援文字取出的掃描版 PDF 檔案，請更換檔案。");
+                        toggleLoading(false);
+                        return;
+                    }
                     toggleLoading(true, `正在由 AI 依課文生成全新國語考題 (難度: ${difficulty})...`);
                     const generated = await generateQuestionsFromTextbook(G_textbookText, targetCount, enabledCategories, difficulty, getApiKey());
                     if (generated && generated.length > 0) {
                         // 雙重前端硬性檢驗：過濾任何不合規的AI幻覺類別
                         G_examQuestions = generated.filter(q => {
                             return enabledCategories.some(cat => q.category && q.category.trim() === cat);
-                        }).slice(0, targetCount);
+                        });
                         
+                        if (G_examQuestions.length < targetCount) {
+                            showToast(`已為您生成最上限的 ${G_examQuestions.length} 題符合條件的題目（已達本教材生字考點上限）。`);
+                        } else {
+                            showToast(`成功依教材內容生成 ${G_examQuestions.length} 題指定考題！`);
+                        }
                         renderQuestionsPreview();
-                        showToast(`成功依教材內容生成 ${G_examQuestions.length} 題指定考題！`);
                     } else {
-                        throw new Error("AI 生成失敗");
+                        throw new Error("AI 無法從此教材段落中生成符合指定題型的考題，請確認檔案內文或多勾選一些題型。");
                     }
                 } else {
                     showToast("請先上傳命題光碟題庫或上傳課本電子檔！");
                 }
             } catch (e) {
-                showToast("出題整合失敗，請確認 API Key 與檔案內文。");
+                console.error(e);
+                showToast(`出題失敗：${e.message || "請確認 API Key 與檔案內文。"}`);
             } finally {
                 toggleLoading(false);
             }
@@ -637,7 +609,7 @@ JSON結構：
 
                 // 為了避免過於頻繁呼叫，加上極微小的延遲，兼顧速度與付費 API 限制
                 if (finalQuestions.length < count && attempts < maxAttempts) {
-                    await new Promise(resolve => setTimeout(resolve, 1200));
+                    await new Promise(resolve => setTimeout(resolve, 1500));
                 }
             }
 
@@ -680,6 +652,33 @@ JSON 結構：
             } catch(e) {
                 return [];
             }
+        }
+
+        async function callGeminiAPI(payload, apiKey) {
+            // stable models list for June 2026: gemini-2.5-flash and gemini-3.5-flash are active.
+            // gemini-1.5-flash is retired.
+            const models = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro"];
+            let lastError = null;
+            for (let model of models) {
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        return await res.json();
+                    } else {
+                        const errText = await res.text();
+                        lastError = `API 錯誤 (${res.status}): ${errText}`;
+                        console.warn(`模型 ${model} 呼叫失敗: ${lastError}`);
+                    }
+                } catch (e) {
+                    lastError = e.message;
+                    console.warn(`模型 ${model} 連線失敗: ${e}`);
+                }
+            }
+            throw new Error(lastError || "連線失敗，請確認網路與金鑰");
         }
 
         function startQuizMission() { document.getElementById('quizModal').classList.remove('hidden'); }
@@ -836,7 +835,7 @@ JSON 結構：
         }
 
         function handleQuizNextQuestion() { G_quizCurrentIndex++; loadQuizQuestion(G_quizCurrentIndex); }
-        
+
         // 答題任務挑戰結算與檢討大面板顯示
         function finishQuizPlay() { 
             document.getElementById('quizPlayScreen').classList.add('hidden'); 
@@ -876,7 +875,7 @@ JSON 結構：
                             <div class="text-emerald-600">正確解答：${wq.correct}</div>
                         </div>
                         <div class="pt-2 border-t border-rose-100 text-slate-600 leading-relaxed bg-white/50 p-2 rounded-lg">
-                            <span class="font-bold text-indigo-700">解析說：</span>${wq.explain}
+                            <span class="font-bold text-indigo-700">解析說明：</span>${wq.explain}
                         </div>
                     `;
                     container.appendChild(card);
@@ -884,18 +883,8 @@ JSON 結構：
             }
         }
 
-        async function callGeminiAPI(payload, apiKey) {
-            const models = ["gemini-2.5-flash", "gemini-2.5-flash-preview-09-2025", "gemini-1.5-flash"];
-            for (let model of models) {
-                try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
-                    });
-                    if (res.ok) return await res.json();
-                } catch (e) {}
-            }
-            throw new Error();
-        }
+        function clearUploadedTextbook() { document.getElementById('textbookUpload').value = ''; document.getElementById('textbookStatus').classList.add('hidden'); G_textbookText = ""; }
+        function clearUploadedExam() { document.getElementById('examUpload').value = ''; document.getElementById('examStatus').classList.add('hidden'); G_parsedExamQuestions = []; }
     </script>
 </body>
 </html>
