@@ -41,7 +41,6 @@
         </div>
     </header>
 
-    <!-- 主區塊：左側設定，右側預覽 -->
     <main class="flex-1 max-w-7xl mx-auto p-4 md:p-6 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section class="lg:col-span-5 space-y-6">
             <!-- 1. 課本教材解析 -->
@@ -489,6 +488,43 @@
             } catch (err) { showToast("題庫內文提取或解析失敗"); } finally { toggleLoading(false); }
         });
 
+        async function parseExamChunkWithAI(textSegment, apiKey) {
+            const systemPrompt = `你是一個專業的台灣國小國語科結構化助手。請將傳入的考題文本片段轉為標準 JSON 陣列。
+【100% 教學現場原樣還原規範】：
+1. 題幹與選項字體字形必須與原始題庫100%完全原樣一致。原本是國字（如：助、赤、自、緻）就必須絕對維持國字，不准擅自轉為注音！
+2. 只有當大題分類是選錯別字、寫國字（字形題）時，才需在題幹中將答案字挖空為「□」。
+3. 如果是字音題（注音題，如問：『緻』的注音為何？或問某組字音是否相同？），題幹與選項中的國字必須完美完整保留，絕對不准用『□』遮蔽！其 category 必須精確標註為 "字音字形"。
+JSON結構：
+[
+  {
+    "category": "字音字形/基本修辭/文意理解/字詞義及運用",
+    "question": "完整題目敘述",
+    "options": ["選項1","選項2","選項3","選項4"],
+    "answer": 1~4的數字,
+    "explain": "台灣標準注音詳解說明"
+  }
+]`;
+            const payload = {
+                contents: [{ parts: [{ text: textSegment }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+            const data = await callGeminiAPI(payload, apiKey);
+            try { 
+                let list = JSON.parse(data.candidates[0].content.parts[0].text); 
+                return list.map(q => {
+                    if (q.category === "字音字形") {
+                        let answerText = q.options[q.answer - 1];
+                        if (answerText && q.question.includes(`「${answerText}」`)) {
+                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
+                            q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
+                        }
+                    }
+                    return q;
+                });
+            } catch(e) { return []; }
+        }
+
         // 雙軌整合出題控制核心
         async function handleGenerateAction() {
             if (!getApiKey()) { showToast("請先輸入 API Key"); return; }
@@ -654,31 +690,47 @@ JSON 結構：
             }
         }
 
-        async function callGeminiAPI(payload, apiKey) {
-            // stable models list for June 2026: gemini-2.5-flash and gemini-3.5-flash are active.
-            // gemini-1.5-flash is retired.
-            const models = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro"];
-            let lastError = null;
-            for (let model of models) {
-                try {
-                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (res.ok) {
-                        return await res.json();
-                    } else {
-                        const errText = await res.text();
-                        lastError = `API 錯誤 (${res.status}): ${errText}`;
-                        console.warn(`模型 ${model} 呼叫失敗: ${lastError}`);
-                    }
-                } catch (e) {
-                    lastError = e.message;
-                    console.warn(`模型 ${model} 連線失敗: ${e}`);
-                }
-            }
-            throw new Error(lastError || "連線失敗，請確認網路與金鑰");
+        function renderQuestionsPreview() {
+            document.getElementById('introPanel').classList.add('hidden');
+            const resultPanel = document.getElementById('examResultPanel');
+            resultPanel.classList.remove('hidden');
+
+            const startRange = document.getElementById('startRange').value.trim() || "未指定";
+            const endRange = document.getElementById('endRange').value.trim() || "未指定";
+            document.getElementById('examMetaText').textContent = `出題範圍：${startRange} ～ ${endRange} | 題數：共 ${G_examQuestions.length} 題`;
+
+            const container = document.getElementById('examQuestionsPreview');
+            container.innerHTML = '';
+
+            G_examQuestions.forEach((q, idx) => {
+                const card = document.createElement('div');
+                card.className = "p-4 mb-4 bg-slate-50 rounded-xl border border-slate-100 hover:border-indigo-100 transition-all space-y-3";
+                
+                let catClass = "bg-slate-200 text-slate-800";
+                if (q.category.includes("字音")) catClass = "bg-rose-50 text-rose-700 border border-rose-100";
+                else if (q.category.includes("成語")) catClass = "bg-emerald-50 text-emerald-700 border border-emerald-100";
+                else if (q.category.includes("修辭")) catClass = "bg-violet-50 text-violet-700 border border-violet-100";
+                else if (q.category.includes("文意")) catClass = "bg-indigo-50 text-indigo-700 border border-indigo-100";
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-black ${catClass} px-2 py-0.5 rounded-md">${q.category}</span>
+                        <span class="text-xs font-mono text-slate-400">Q${idx + 1}</span>
+                    </div>
+                    <h4 class="text-sm font-bold text-slate-800 leading-relaxed">(　　) ${q.question}</h4>
+                    <div class="grid grid-cols-2 gap-2 text-xs text-slate-600 pl-4">
+                        <div>① ${q.options[0]}</div>
+                        <div>② ${q.options[1]}</div>
+                        <div>③ ${q.options[2]}</div>
+                        <div>④ ${q.options[3]}</div>
+                    </div>
+                    <div class="text-xs bg-indigo-50/50 p-2.5 rounded-lg border border-indigo-50/80 space-y-1">
+                        <span class="font-bold text-indigo-700">《正確答案》選項 ${q.answer}</span>
+                        <p class="text-slate-500 leading-relaxed"><span class="font-medium text-slate-700">詳解：</span>${q.explain || "暫無詳解。"}</p>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
         }
 
         function startQuizMission() { document.getElementById('quizModal').classList.remove('hidden'); }
@@ -881,6 +933,32 @@ JSON 結構：
                     container.appendChild(card);
                 });
             }
+        }
+
+        async function callGeminiAPI(payload, apiKey) {
+            // 2026年6月當前最穩定的 GA API 呼叫路由（包含3.5、3.1與2.5備用防欠費與限流機制）
+            const models = ["gemini-2.5-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite", "gemini-2.5-pro"];
+            let lastError = null;
+            for (let model of models) {
+                try {
+                    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    if (res.ok) {
+                        return await res.json();
+                    } else {
+                        const errText = await res.text();
+                        lastError = `API 錯誤 (${res.status}): ${errText}`;
+                        console.warn(`模型 ${model} 呼叫失敗: ${lastError}`);
+                    }
+                } catch (e) {
+                    lastError = e.message;
+                    console.warn(`模型 ${model} 連線失敗: ${e}`);
+                }
+            }
+            throw new Error(lastError || "連線失敗，請確認網路與金鑰");
         }
 
         function clearUploadedTextbook() { document.getElementById('textbookUpload').value = ''; document.getElementById('textbookStatus').classList.add('hidden'); G_textbookText = ""; }
