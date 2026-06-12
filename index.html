@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI 智能國語教學與命題系統 (付費 API 終極修復版)</title>
+    <title>AI 智能國語教學與命題系統 (雙軌智慧出題終極版)</title>
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js for parsing textbook PDFs -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+    <!-- Mammoth.js for parsing exam DOCX files -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.6.0/mammoth.browser.min.js"></script>
+    <!-- JSZip for OpenXML parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght=300;400;500;700;900&display=swap');
@@ -19,6 +23,7 @@
 </head>
 <body class="min-h-screen text-slate-800 flex flex-col transition-colors duration-300">
 
+    <!-- 主導航欄 -->
     <header class="bg-indigo-600 text-white shadow-lg py-4 px-6 sticky top-0 z-40">
         <div class="max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
@@ -29,6 +34,7 @@
             </div>
             <div class="flex items-center gap-4 w-full md:w-auto">
                 <div class="relative flex-1 md:flex-initial">
+                    <!-- 永久本地鎖定 API Key 輸入框 -->
                     <input type="password" id="apiKeyInput" oninput="saveApiKeyToLocal(this.value)" placeholder="請輸入 Gemini API Key..." class="w-full md:w-64 px-4 py-2 bg-indigo-700 text-white rounded-lg placeholder-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-300 transition-all text-sm">
                 </div>
             </div>
@@ -37,13 +43,14 @@
 
     <main class="flex-1 max-w-7xl mx-auto p-4 md:p-6 w-full grid grid-cols-1 lg:grid-cols-12 gap-6">
         <section class="lg:col-span-5 space-y-6">
+            <!-- 1. 課本教材解析 -->
             <div class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 relative overflow-hidden">
                 <div class="absolute top-0 left-0 w-2 h-full bg-emerald-500"></div>
                 <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <span class="p-1.5 bg-emerald-50 text-emerald-600 rounded-lg">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                     </span>
-                    1. 課本教材解析與範圍設定
+                    1. 課本教材解析與範圍設定 (教材出題模式)
                 </h2>
                 <div class="space-y-4">
                     <div class="border-2 border-dashed border-slate-200 hover:border-emerald-400 rounded-xl p-4 text-center transition-all cursor-pointer relative group">
@@ -71,13 +78,14 @@
                 </div>
             </div>
 
+            <!-- 2. 題庫匯入 -->
             <div class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 relative overflow-hidden">
                 <div class="absolute top-0 left-0 w-2 h-full bg-indigo-500"></div>
                 <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <span class="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 4H6a2 2 0 00-2 2v12a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-2m-4-1v8m0 0l3-3m-3 3L9 8m-5 5h2.586a1 1 0 01.707.293l2.414 2.414a1 1 0 00.707.293h3.172a1 1 0 00.707-.293l2.414-2.414a1 1 0 01.707-.293H20" /></svg>
                     </span>
-                    2. 命題光碟題庫匯入 (支援 PDF/Word)
+                    2. 命題光碟題庫匯入 (優先代入模式)
                 </h2>
                 <div class="space-y-4">
                     <div class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-4 text-center transition-all cursor-pointer relative group">
@@ -98,6 +106,7 @@
                 </div>
             </div>
 
+            <!-- 3. 出題設定 -->
             <div class="bg-white rounded-2xl shadow-md p-6 border border-slate-100 relative overflow-hidden">
                 <div class="absolute top-0 left-0 w-2 h-full bg-violet-500"></div>
                 <h2 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
@@ -107,9 +116,19 @@
                     3. 教學命題參數與題型勾選
                 </h2>
                 <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-slate-600 mb-1.5">出題總題數</label>
-                        <input type="number" id="questionCount" value="10" min="1" max="100" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500">
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1.5">出題總題數</label>
+                            <input type="number" id="questionCount" value="10" min="1" max="100" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 mb-1.5">考題難易度 (課本出題專用)</label>
+                            <select id="difficultySelect" class="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-violet-500 bg-white">
+                                <option value="基礎">基礎 (重字音字形與直接文意)</option>
+                                <option value="中等" selected>中等 (重詞義運用與基本修辭)</option>
+                                <option value="挑戰">挑戰 (重深度文意與進階修辭)</option>
+                            </select>
+                        </div>
                     </div>
                     <div>
                         <span class="block text-xs font-bold text-slate-600 mb-2">測驗題型勾選</span>
@@ -150,7 +169,7 @@
                     <svg class="w-16 h-16" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364.364l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
                 </div>
                 <h3 class="text-xl font-black text-slate-800">準備好進行智能教學了嗎？</h3>
-                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側輸入 API Key 並直接匯入命題光碟檔案。系統已精準鎖定題型過濾機制，並在答題暫停畫面中完整部署了「返回大廳」的控制按鍵！</p>
+                <p class="text-slate-500 max-w-md text-sm leading-relaxed">請於左側輸入 API Key 並匯入課本或題庫檔案。系統已精準鎖定題型過濾機制，並支援在暫停畫面中進行「返回大廳」的控制！</p>
             </div>
 
             <div id="examResultPanel" class="hidden bg-white rounded-2xl shadow-md p-6 border border-slate-100 flex-1 flex flex-col space-y-6">
@@ -168,6 +187,7 @@
         </section>
     </main>
 
+    <!-- 答題任務設定與測驗視窗 -->
     <div id="quizModal" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
         <div id="quizConfigScreen" class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-100 p-6 space-y-6">
             <div class="flex justify-between items-center border-b border-slate-100 pb-4">
@@ -206,6 +226,7 @@
         </div>
 
         <div id="quizPlayScreen" class="hidden bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-slate-100 p-6 flex flex-col h-[90vh] md:h-auto max-h-[750px] relative overflow-hidden">
+            <!-- 暫停畫面 -->
             <div id="quizPauseOverlay" class="hidden absolute inset-0 z-30 bg-slate-900/40 backdrop-blur-xl flex flex-col items-center justify-center space-y-4">
                 <h3 class="text-xl font-black text-white tracking-wider">挑戰暫停中</h3>
                 <p class="text-xs text-slate-200 mb-2">題目內容已安全隱蔽，準備好後即可繼續答題</p>
@@ -238,6 +259,7 @@
         </div>
     </div>
 
+    <!-- Loading 與 Toast -->
     <div id="loadingOverlay" class="hidden fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex flex-col items-center justify-center space-y-4">
         <div class="rounded-full border-4 border-slate-300 border-t-indigo-600 animate-spin w-12 h-12"></div>
         <p class="text-white font-bold text-sm" id="loadingText"></p>
@@ -253,7 +275,19 @@
         let G_examQuestions = [], G_parsedExamQuestions = [], G_seenQuestionTexts = new Set();
         let G_quizCurrentIndex = 0, G_quizQuestions = [], G_quizTimerValue = 0, G_quizTimerInterval = null, G_quizWrongList = [], G_quizCurrentMapping = {};
 
-        // 頁面加載完成時，自動讀取本地儲存的 API Key 鎖定
+        // 台灣標準國音字典對應表
+        const BOPOMOFO_MAP = {
+            "罐": "ㄍㄨㄢˋ", "冠": "ㄍㄨㄢ", "灌": "ㄍㄨㄢˋ", "貫": "ㄍㄨㄢˋ",
+            "緻": "ㄓˋ", "助": "ㄓㄨˋ", "赤": "ㄔˋ", "自": "ㄗˋ",
+            "好": "ㄏㄠˋ", "惡": "ㄨˋ", "逸": "ㄧˋ", "勞": "ㄌㄠˊ",
+            "傍": "ㄅㄤ", "晚": "ㄨㄢˇ", "水": "ㄕㄨㄟˇ", "礁": "ㄐㄧㄠ",
+            "焦": "ㄐㄧㄠ", "筏": "ㄈㄚˊ", "伐": "ㄈㄚˊ", "捏": "ㄋㄧㄝ",
+            "爐": "ㄌㄨˊ", "考": "ㄎㄠˇ", "烤": "ㄎㄠˇ", "復": "ㄈㄨˋ",
+            "複": "ㄈㄨˋ", "腹": "ㄈㄨˋ", "擅": "ㄕㄢˋ", "理": "ㄌㄧˇ",
+            "哲": "ㄓㄜˊ"
+        };
+
+        // 頁面加載時，自動載入本機永久記住的 API Key
         window.addEventListener('DOMContentLoaded', () => {
             const savedKey = localStorage.getItem('gemini_api_key');
             if (savedKey) {
@@ -262,7 +296,6 @@
             }
         });
 
-        // 儲存 API Key 至本機儲存空間
         function saveApiKeyToLocal(value) {
             G_apiKey = value.trim();
             localStorage.setItem('gemini_api_key', G_apiKey);
@@ -274,13 +307,16 @@
             toast.style.opacity = "1";
             setTimeout(() => { toast.style.opacity = "0"; }, 3000);
         }
+        
         function toggleLoading(show, text) {
             const overlay = document.getElementById('loadingOverlay');
             document.getElementById('loadingText').textContent = text;
             show ? overlay.classList.remove('hidden') : overlay.classList.add('hidden');
         }
+        
         function getApiKey() { return document.getElementById('apiKeyInput').value.trim() || G_apiKey; }
 
+        // 1. 課本電子檔解析上傳
         document.getElementById('textbookUpload').addEventListener('change', async function(e) {
             const file = e.target.files[0]; if (!file) return;
             toggleLoading(true, "正在讀取電子教材內容...");
@@ -300,13 +336,16 @@
                     const arrayBuffer = await file.arrayBuffer();
                     const result = await mammoth.extractRawText({ arrayBuffer: arrayBuffer });
                     G_textbookText = result.value;
+                } else {
+                    G_textbookText = await file.text();
                 }
                 document.getElementById('textbookName').textContent = file.name;
                 document.getElementById('textbookStatus').classList.remove('hidden');
-                showToast("教材匯入成功！");
-            } catch (err) { showToast("教材讀取失敗"); } finally { toggleLoading(false); }
+                showToast("教材課本讀取成功！");
+            } catch (err) { showToast("教材讀取失敗，請確認檔案。"); } finally { toggleLoading(false); }
         });
 
+        // 2. 題庫 Word/PDF 匯入（優先代入）
         document.getElementById('examUpload').addEventListener('change', async function(e) {
             const file = e.target.files[0]; if (!file) return;
             if (!getApiKey()) { showToast("請先輸入 API Key"); e.target.value = ''; return; }
@@ -364,8 +403,9 @@
                     }
                 }
 
-                if (!rawText.trim()) { throw new Error("Text empty"); }
+                if (!rawText.trim()) { throw new Error("提取文字為空"); }
 
+                // 前端分批切片，避免大型題庫過載 API
                 const lines = rawText.split('\n').filter(l => l.trim().length > 0);
                 let textChunks = []; let currentChunk = "";
                 for (let line of lines) {
@@ -386,29 +426,22 @@
                 }
                 document.getElementById('examName').textContent = file.name;
                 document.getElementById('examStatus').classList.remove('hidden');
-                showToast(`大題庫共成功導入 ${G_parsedExamQuestions.length} 題！`);
-            } catch (err) { showToast("題庫內文提取失敗"); } finally { toggleLoading(false); }
+                showToast(`大題庫匯入完畢，成功導入 ${G_parsedExamQuestions.length} 題！`);
+            } catch (err) { showToast("題庫內文提取或解析失敗"); } finally { toggleLoading(false); }
         });
-
-        // 台灣標準國音輔助對應字典
-        const BOPOMOFO_MAP = {
-            "罐": "ㄍㄨㄢˋ", "冠": "ㄍㄨㄢ", "灌": "ㄍㄨㄢˋ", "貫": "ㄍㄨㄢˋ",
-            "緻": "ㄓˋ", "助": "ㄓㄨˋ", "赤": "ㄔˋ", "自": "ㄗˋ",
-            "好": "ㄏㄠˋ", "惡": "ㄨˋ", "逸": "ㄧˋ", "勞": "ㄌㄠˊ",
-            "傍": "ㄅㄤ", "晚": "ㄨㄢˇ", "水": "ㄕㄨㄟˇ"
-        };
 
         async function parseExamChunkWithAI(textSegment, apiKey) {
             const systemPrompt = `你是一個專業的台灣國小國語科結構化助手。請將傳入的考題文本片段轉為標準 JSON 陣列。
-【教學現場最嚴格防洩密與原樣規範】：
-1. 題幹與選項字體字形必須與原始題庫100%完全原樣一致。原本是國字就必須絕對維持國字，不准擅自轉為注音！
-2. 只有當大題分類是選錯別字、寫國字（字形題）時，才需在題幹中將答案字挖空為「□」。
-3. 如果是字音題（注音題，如問：『緻』的注音為何？或問『罐』的注音為何？），題幹與選項中的國字必須完美完整保留，絕對不准用『□』遮蔽！其 category 必須精確標註為 "字音字形"。
+【極嚴格！國音淨化與防洩題規範】：
+1. 淨化注音噪音：由於題庫來源可能有PDF轉檔字型位移亂碼（如將注音與國字拆碎為『ㄕㄢˋ長』、『哲ㄌㄧˇ』），你必須將這些破碎的拼音與注音符號完全清除，並還原成乾淨標準國字的正常詞彙。例如：必須把『ㄕㄢˋ長』和『哲ㄌㄧˇ』完全修復為國字『擅長』、『哲理』。題幹中絕對不允許出現半漢字半拼音的破碎字詞！
+2. 題幹絕對不能洩密：如果題目考字音/注音題（例如考「擅」或「哲」的注音），題幹中的該字詞必須以乾淨的國字呈現（如『擅長』、『哲理』），絕對不允許在題幹句子中直接寫出其答案注音（如『ㄕㄢˋ』、『ㄓㄜˊ』），否則等於直接洩漏答案給學生！
+3. 擷取完整情境段落：凡是「語詞意思測驗」、「文意理解測驗」，你必須從傳入的文本中擷取該語詞所在的「完整句子或上下段落」作為題幹情境。嚴禁出那種毫無情境、直接詢問『請問「某語詞」是什麼意思？』的死板題目。你必須採用：『在課文「（完整句子段落）」中，請問「（目標語詞）」的意思是什麼？』的格式命題，以便學童根據上下文推論。
+
 JSON結構：
 [
   {
     "category": "字音字形/基本修辭/文意理解/字詞義及運用",
-    "question": "完整題目敘述",
+    "question": "完整情境題目敘述 (確保注音題不帶注音，且語詞題必須擷取情境段落)",
     "options": ["選項1","選項2","選項3","選項4"],
     "answer": 1~4的數字,
     "explain": "台灣標準注音詳解說明"
@@ -422,13 +455,11 @@ JSON結構：
             const data = await callGeminiAPI(payload, apiKey);
             try { 
                 let list = JSON.parse(data.candidates[0].content.parts[0].text); 
-                // 前端強制物理修正：防露題防混淆二次校正演算法
                 return list.map(q => {
                     if (q.category === "字音字形") {
                         let answerText = q.options[q.answer - 1];
                         if (answerText && q.question.includes(`「${answerText}」`)) {
-                            // 發現把國字正解塞進了引號中（洩題），自動執行台灣教育部標準注音替換
-                            let bopomofoText = BOPOMOFO_MAP[answerText] || " ";
+                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
                             q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
                         }
                     }
@@ -437,10 +468,11 @@ JSON結構：
             } catch(e) { return []; }
         }
 
+        // 雙軌整合出題控制核心
         async function handleGenerateAction() {
             if (!getApiKey()) { showToast("請先輸入 API Key"); return; }
             const targetCount = parseInt(document.getElementById('questionCount').value) || 10;
-            toggleLoading(true, "正在精準篩選您勾選的題型...");
+            const difficulty = document.getElementById('difficultySelect').value;
             
             const enabledCategories = [];
             if (document.getElementById('typePhonetics').checked) enabledCategories.push("字音字形");
@@ -449,22 +481,100 @@ JSON結構：
             if (document.getElementById('typeMeaning').checked) enabledCategories.push("語詞意思測驗", "字詞義及運用", "文字語詞意思測驗");
             if (document.getElementById('typeComprehension').checked) enabledCategories.push("文意理解測驗", "文意理解");
 
+            if (enabledCategories.length === 0) {
+                showToast("請至少勾選一種欲測驗的題型！");
+                return;
+            }
+
+            toggleLoading(true, "正在智能篩選與配置考題...");
+
             try {
-                let pool = G_parsedExamQuestions.filter(q => {
-                    return enabledCategories.some(cat => q.category && q.category.includes(cat));
-                });
+                if (G_parsedExamQuestions.length > 0) {
+                    // 軌道一：有匯入光碟題庫 -> 優先從中精準篩選
+                    let pool = G_parsedExamQuestions.filter(q => {
+                        return enabledCategories.some(cat => q.category && q.category.includes(cat));
+                    });
 
-                if (pool.length === 0) {
-                    showToast("目前題庫中沒有完全符合您勾選題型的題目。");
-                    toggleLoading(false);
-                    return;
+                    if (pool.length === 0) {
+                        showToast("目前匯入的題庫中沒有完全符合您勾選題型的題目。");
+                        toggleLoading(false);
+                        return;
+                    }
+
+                    pool.sort(() => Math.random() - 0.5);
+                    G_examQuestions = pool.slice(0, targetCount);
+                    renderQuestionsPreview();
+                    showToast(`已從命題題庫中挑選出 ${G_examQuestions.length} 題指定考題！`);
+                } else if (G_textbookText.trim().length > 0) {
+                    // 軌道二：無題庫但有課本內容 -> AI 依課文及指定難度即時出題
+                    toggleLoading(true, `正在由 AI 依課文生成全新國語考題 (難度: ${difficulty})...`);
+                    const generated = await generateQuestionsFromTextbook(G_textbookText, targetCount, enabledCategories, difficulty, getApiKey());
+                    if (generated && generated.length > 0) {
+                        G_examQuestions = generated;
+                        renderQuestionsPreview();
+                        showToast(`成功依教材內容生成 ${G_examQuestions.length} 題指定考題！`);
+                    } else {
+                        throw new Error("AI 生成失敗");
+                    }
+                } else {
+                    showToast("請先上傳命題光碟題庫或上傳課本電子檔！");
                 }
+            } catch (e) {
+                showToast("出題整合失敗，請確認 API Key 與檔案內文。");
+            } finally {
+                toggleLoading(false);
+            }
+        }
 
-                pool.sort(() => Math.random() - 0.5);
-                G_examQuestions = pool.slice(0, targetCount);
-                renderQuestionsPreview();
-                showToast(`已精準挑選出 ${G_examQuestions.length} 題純您指定題型的試卷！`);
-            } catch (e) { showToast("出題失敗"); } finally { toggleLoading(false); }
+        async function generateQuestionsFromTextbook(text, count, categories, difficulty, apiKey) {
+            const systemPrompt = `你是一個專業的台灣國小國語科命題教師。請根據提供的課本教材內容，精準生成指定題數與難度的國語科選擇題。
+【極嚴格！教材情境擷取與國音淨化規範】：
+1. 擷取課文情境段落（核心要求）：凡是「語詞意思」、「文意理解」、「基本修辭」等題目，你必須從課本教材中精準擷取「含有該目標字詞的完整句子或課文段落」作為題幹背景。絕對不允許出毫無上下文情境的『請問「某語詞」是什麼意思？』。必須重構為：『在課文「（擷取的課文完整句子）」中，請問「（目標語詞）」的意思最接近下列何者？』，讓學童能根據課文情境進行合理的上下文語義推論。
+2. 國音淨化與防洩題：如果是考字音題（例如考「擅」或「哲」的注音），題幹情境字詞必須是乾淨、無注音符號干擾的純國字（如『擅長』、『哲理』），絕對不允許在題幹中混入該字的注音符號（如出現『ㄕㄢˋ』、『ㄓㄜˊ』），否則就是直接洩漏答案給學生！
+3. 難易度設定：
+   - 基礎：聚焦生字、字音字形辨析、詞語直接解釋與課文內容直接文意。
+   - 中等：增加詞義運用情境題、基本修辭（如譬喻、設問、轉化）辨析、成語應用。
+   - 挑戰：注重深度的文意理解、主旨推論、複雜修辭與跨情境的字詞字音多載音辨析。
+   目前設定的難易度為：【${difficulty}】。
+4. 格式：必須返回一個純 JSON 陣列，不包含 \`\`\`json 等 Markdown 包裝字元。
+
+JSON 結構：
+[
+  {
+    "category": "字音字形/基本修辭/文意理解/字詞義及運用",
+    "question": "完整情境題目敘述 (確保注音題之目標字在題幹中為乾淨國字不帶注音，且語詞題必須精確擷取含有該片段的完整課文段落句子作為情境問答)",
+    "options": ["選項1", "選項2", "選項3", "選項4"],
+    "answer": 1~4的數字,
+    "explain": "詳細的台灣標準注音詳解說明"
+  }
+]`;
+
+            // 確保擷取豐富內文片段以利 AI 尋找上下文
+            const textSegment = text.substring(0, 15000);
+            const payload = {
+                contents: [{ parts: [{ text: `請幫我從以下教材內容中，出【${difficulty}】難度、符合指定題型的大約 ${count} 題考題：\n\n${textSegment}` }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" }
+            };
+
+            const data = await callGeminiAPI(payload, apiKey);
+            try {
+                let list = JSON.parse(data.candidates[0].content.parts[0].text);
+                return list.map(q => {
+                    if (q.category === "字音字形") {
+                        let answerText = q.options[q.answer - 1];
+                        if (answerText && q.question.includes(`「${answerText}」`)) {
+                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
+                            q.question = q.question.replace(`「${answerText}」`, `「${bopomofoText}」`);
+                        }
+                        if (answerText && q.question.includes(`『${answerText}』`)) {
+                            let bopomofoText = BOPOMOFO_MAP[answerText] || "　";
+                            q.question = q.question.replace(`『${answerText}』`, `『${bopomofoText}』`);
+                        }
+                    }
+                    return q;
+                });
+            } catch(e) { return []; }
         }
 
         function renderQuestionsPreview() {
@@ -475,7 +585,7 @@ JSON結構：
                 const card = document.createElement('div');
                 card.className = "p-4 mb-4 bg-slate-50 rounded-xl border border-slate-100 text-sm";
                 card.innerHTML = `
-                    <div class="font-bold mb-1">[${q.category}] Q${idx+1}. (  ) ${q.question}</div>
+                    <div class="font-bold mb-1">[${q.category}] Q${idx+1}. (　　) ${q.question}</div>
                     <div class="grid grid-cols-2 gap-1 text-xs text-slate-600 mb-2">
                         <div>① ${q.options[0]}</div><div>② ${q.options[1]}</div><div>③ ${q.options[2]}</div><div>④ ${q.options[3]}</div>
                     </div>
@@ -497,7 +607,7 @@ JSON結構：
             if (!allowRepeatHistory) {
                 const filtered = pool.filter(q => !G_seenQuestionTexts.has(q.question));
                 if (filtered.length === 0) {
-                    showToast("本大題內歷史題目均已抽過，自動重設排重記錄！");
+                    showToast("本大題內歷史題目均已抽過，自動清空排重歷史記錄！");
                     G_seenQuestionTexts.clear();
                 } else { pool = filtered; }
             }
@@ -536,12 +646,11 @@ JSON結構：
             });
             document.getElementById('quizFeedbackArea').classList.add('hidden');
             
-            // 出題時，重新抓取單題限制時間上限
             let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
             startQuizTimer(limit);
         }
 
-        // 精準鎖定中斷秒數接續倒數計時引擎
+        // 精準倒數計時引擎 (支援暫停接續)
         function startQuizTimer(secondsValue) {
             clearInterval(G_quizTimerInterval);
             let limit = parseInt(document.getElementById('quizTimerConfig').value) || 0;
@@ -558,16 +667,14 @@ JSON結構：
             }, 1000);
         }
 
-        // 點擊暫停：凍結目前精確的秒數
         function pauseQuizPlay() { 
             clearInterval(G_quizTimerInterval); 
             document.getElementById('quizPauseOverlay').classList.remove('hidden'); 
         }
         
-        // 點擊繼續：從被凍結的 G_quizTimerValue 接續倒數，絕不歸零！
         function resumeQuizPlay() { 
             document.getElementById('quizPauseOverlay').classList.add('hidden'); 
-            startQuizTimer(G_quizTimerValue); 
+            startQuizTimer(G_quizTimerValue); // 接續暫停時的精確秒數往下走
         }
         
         function exitQuizToHome() { closeQuizModal(); document.getElementById('quizConfigScreen').classList.remove('hidden'); }
